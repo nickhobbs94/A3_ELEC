@@ -108,6 +108,12 @@ void puttyPrintLine(const char* format,...){
 	close(uart_pointer);
 }
 
+void puttyPrintChars(alt_8 string[], alt_32 length){
+	alt_32 uart_pointer = open("/dev/uart_0", O_WRONLY);
+	write(uart_pointer, string, length);
+	close(uart_pointer);
+}
+
 /*void puttyPrintInt(alt_32 number){
 	alt_32 temp;
 	alt_8 array[SD_PUTTY_MAX_INT_DIGITS];

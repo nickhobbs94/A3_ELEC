@@ -498,76 +498,170 @@ alt_32 copy_file(alt_32 argc, alt_8* argv[]){
 }
 
 
-#define VOL 28
-#define SAMP 8000
-#define SIZ 2048
-//#define M_PI 3.141593
+#define VOL 20
+#define SIZE 512
+
+#define SIZE_OF_HEADER 44
+#define STRING_LEN 4
+
+/* Define structure of header */
+typedef struct{
+	/* "RIFF" Descriptor */
+	alt_8 Chunk_ID[STRING_LEN];
+	alt_32 Chunk_Size;
+	alt_8 Format[STRING_LEN];
+	/* "fmt" sub-chunk */
+	alt_8 Subchunk_ID[STRING_LEN];
+	alt_32 Subchunk_Size;
+	alt_16 Audio_Format;
+	alt_16 Num_Channels;
+	alt_32 Sample_Rate;
+	alt_32 Byte_Rate;
+	alt_16 Block_Align;
+	alt_16 Bits_Per_Sample;
+	/* "data" sub-chunk */
+	alt_8 Subchunk2_ID[STRING_LEN];
+	alt_32 Subchunk2_Size;
+} Wave_Header;
 
 alt_32 wav_play(alt_32 argc, alt_8* argv[]){
-    /* MUST HAVE THE FOLDER audio in the project
-     *  GO TO BLACKBOARD AND DOWNLOAD THE FOLDER */
+	/* Check number of arguments */
+	if (argc <= 1){
+		puttyPrintLine("Syntax: %s filepath\n\r", argv[0]);
+		return -1;
+	}
 
-    /* ----- Configure the audio codec: typically we do this
-     * only once at the beginning --------------------------     */
-    if ( !AUDIO_Init() ) {
-    	printf("Unable to initialise audio codec\n");
-    	return -1;
-    }
+	/* Try to mount SD card */
+	EmbeddedFileSystem* efsl;
+	efsl = *(SD_mount());
+	if (efsl==NULL){
+		return -1;
+	}
 
-    /* ----- Open the audio device: Typically we do this
-     * only once at the beginning --------------------------     */
-    alt_up_audio_dev*  audio_dev;
-    audio_dev = alt_up_audio_open_dev(AUDIO_NAME);
+	/* Get absolute path */
+	alt_8 path[SD_MAX_PATH_LENGTH];
+	altstrcpy(path,SD_getCurrentPath());
+	SD_updatePath(path,argv[1]);
 
+	/* Try to open file */
+	File file;
+	if(file_fopen(&file, &(efsl->myFs), path, 'r')!=0){
+		puttyPrintLine("Could not open file for reading\n\r");
+		if (UNMOUNT_SD_AFTER_OPERATION){
+			SD_unmount();
+		}
+		return -1;
+	}
 
+	/* Try to read header from file */
+	euint8 buffer[SIZE_OF_HEADER];
+	euint16 result;
+	result = file_read(&file,SIZE_OF_HEADER,buffer);
+	if (result != SIZE_OF_HEADER){
+		puttyPrintLine("Error reading header\n\r");
+		return -1;
+	}
 
-    /* -----  Reset the FIFO in audio codec: typically we do this
-     * everytime a new audio stream is opened --------------     */
-    alt_up_audio_reset_audio_core(audio_dev);
+	/* Set pointer to header structure to the newly read header */
+	Wave_Header* header_data;
+	header_data = (Wave_Header*) buffer;
 
+	/* Init audio codec and device (only needs to be done once) */
+	if ( !AUDIO_Init() ) {
+		printf("Unable to initialise audio codec\n");
+		return -1;
+	}
+	alt_up_audio_dev*  audio_dev;
+	audio_dev = alt_up_audio_open_dev(AUDIO_NAME);
 
-    /* -----  Set the sampling frequency in the codec: typically we
-     * do this everytime a new audio stream is opened -------    */
-    switch(SAMP) {
-      case 8000:  AUDIO_SetSampleRate(RATE_ADC8K_DAC8K_USB); break;
-      case 32000: AUDIO_SetSampleRate(RATE_ADC32K_DAC32K_USB); break;
-      case 44100: AUDIO_SetSampleRate(RATE_ADC44K_DAC44K_USB); break;
-      case 48000: AUDIO_SetSampleRate(RATE_ADC48K_DAC48K_USB); break;
-      case 96000: AUDIO_SetSampleRate(RATE_ADC96K_DAC96K_USB); break;
-      default:  printf("Non-standard sampling rate\n"); return -1;
+	/* Reset the FIFO in audio codec (do this every time a new stream is loaded) */
+	alt_up_audio_reset_audio_core(audio_dev);
+
+	/* Set the sampling frequency (do this every time a new stream is loaded) */
+	switch(header_data->Sample_Rate) {
+	  case 8000:  AUDIO_SetSampleRate(RATE_ADC8K_DAC8K_USB); break;
+	  case 32000: AUDIO_SetSampleRate(RATE_ADC32K_DAC32K_USB); break;
+	  case 44100: AUDIO_SetSampleRate(RATE_ADC44K_DAC44K_USB); break;
+	  case 48000: AUDIO_SetSampleRate(RATE_ADC48K_DAC48K_USB); break;
+	  case 96000: AUDIO_SetSampleRate(RATE_ADC96K_DAC96K_USB); break;
+	  default:  puttyPrintLine("Non-standard sampling rate\n\r"); return -1;
    }
 
-    /* ----- Simple sample code for playing audio -------------- */
-    unsigned int buf[SIZ];
-    //alt_u32 buf[SIZ];
-    alt_32 i, freq;
-    for(freq=200; freq<2000; freq+=100) {
-    	float omega = ((2.0*M_PI)*freq)/SAMP;
+	/* Print some header data */
+	puttyPrintLine("Chunk ID: ");
+	puttyPrintChars(header_data->Chunk_ID, STRING_LEN);
+	puttyPrintLine("\n\rFormat: ");
+	puttyPrintChars(header_data->Format, STRING_LEN);
 
-    	// fill buffer: Each sample MUST be a signed 32 bit int
-    	for(i=0;i<SIZ;++i){
-    		buf[i] = pow(2,VOL)*sin(omega*i);
-    	}
+	puttyPrintLine("\n\rSampleRate: %d\n\rNumChannels: %d\n\r", header_data->Sample_Rate, header_data->Num_Channels);
+	puttyPrintLine("Size: %d\n\rBits Per Sample: %d\n\r", header_data->Subchunk2_Size, header_data->Bits_Per_Sample);
 
-        // Check if we have enough space in the audio codec FIFO
-        // if not then wait
-        while(alt_up_audio_write_fifo_space(audio_dev,0) < SIZ);
 
-        // Write data into left and right channels  of audio codec FIFO
-        alt_up_audio_write_fifo(audio_dev,buf,SIZ,ALT_UP_AUDIO_RIGHT);
-	    alt_up_audio_write_fifo(audio_dev,buf,SIZ,ALT_UP_AUDIO_LEFT);
-    }
+	/* ------------------------------------------------- Play the audio data ------------------------------------------------- */
 
+	alt_32 totalBytesRead = 0;
+	alt_32 bytesRead1;
+	alt_32 bytesRead2;
+	alt_32 bytesPerSample = header_data->Bits_Per_Sample/8;
+	do {
+		alt_u32 buffer1[SIZE];
+		alt_u32 buffer2[SIZE];
+
+		//Load buffer
+		alt_32 i;
+		bytesRead1 = 0;
+		bytesRead2 = 0;
+		for (i=0; i<SIZE; i+=bytesPerSample){
+
+			bytesRead1 += file_read(&file, bytesPerSample, ((euint8*)buffer1)+i);
+			bytesRead2 += file_read(&file, bytesPerSample, ((euint8*)buffer2)+i);
+
+		}
+
+
+/*		float omega = ((2.0*M_PI)*1000)/header_data->Sample_Rate;
+
+		for(i=0;i<SIZE;++i){
+			buffer1[i] = pow(2,30)*sin(omega*i);
+			buffer2[i] = pow(2,30)*sin(omega*i);
+		}
+		bytesRead1 = SIZE;
+		bytesRead2 = SIZE;
+
+*/
+
+
+		if (bytesRead1 != bytesRead2){
+			puttyPrintLine("Uhhhhhhhhhh\n\r");
+			return -1;
+		} else if (bytesRead1 != SIZE || bytesRead2 != SIZE){
+			puttyPrintLine("Corrupt header\n\r");
+			return -1;
+		}
+
+		totalBytesRead += bytesRead1 + bytesRead2;
+
+		while(alt_up_audio_write_fifo_space(audio_dev,0) < SIZE );
+
+		while(alt_up_audio_write_fifo_space(audio_dev,1) < SIZE );
+
+		// Write data into left and right channels  of audio codec FIFO
+		alt_up_audio_write_fifo(audio_dev,(unsigned int*)buffer1,bytesRead1,ALT_UP_AUDIO_RIGHT);
+		alt_up_audio_write_fifo(audio_dev,(unsigned int*)buffer2,bytesRead2,ALT_UP_AUDIO_LEFT);
+	} while (totalBytesRead < header_data->Subchunk2_Size);
+
+	file_fclose(&file);
+
+
+    if (UNMOUNT_SD_AFTER_OPERATION){
+		SD_unmount();
+	}
     return 0;
 }
 
 #undef VOL
-#undef SIZ
+#undef SIZE
 #undef SAMP
-
-
-
-
 
 #endif
 
