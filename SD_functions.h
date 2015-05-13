@@ -43,7 +43,7 @@ EmbeddedFileSystem** SD_mount(){
 	if (check==0){
 		printf("Filesystem correctly initialized\n");
 	} else {
-		puttyPrintLine("Could not init filesystem\n");
+		puttyPrintLine("Could not init filesystem\n\r");
 		printf("Could not init filesystem\n");
 		someFileSystemPointer = NULL;
 	}

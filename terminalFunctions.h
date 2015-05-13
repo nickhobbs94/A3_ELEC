@@ -499,7 +499,7 @@ alt_32 copy_file(alt_32 argc, alt_8* argv[]){
 
 
 #define VOL 20
-#define SIZE 512
+
 
 #define SIZE_OF_HEADER 44
 #define STRING_LEN 4
@@ -581,7 +581,7 @@ alt_32 wav_play(alt_32 argc, alt_8* argv[]){
 	switch(header_data->Sample_Rate) {
 	  case 8000:  AUDIO_SetSampleRate(RATE_ADC8K_DAC8K_USB); break;
 	  case 32000: AUDIO_SetSampleRate(RATE_ADC32K_DAC32K_USB); break;
-	  case 44100: AUDIO_SetSampleRate(RATE_ADC44K_DAC44K_USB); break;
+	  case 44100: AUDIO_SetSampleRate(RATE_ADC44K_DAC44K_USB); printf("44K!\n"); break;
 	  case 48000: AUDIO_SetSampleRate(RATE_ADC48K_DAC48K_USB); break;
 	  case 96000: AUDIO_SetSampleRate(RATE_ADC96K_DAC96K_USB); break;
 	  default:  puttyPrintLine("Non-standard sampling rate\n\r"); return -1;
@@ -598,57 +598,32 @@ alt_32 wav_play(alt_32 argc, alt_8* argv[]){
 
 
 	/* ------------------------------------------------- Play the audio data ------------------------------------------------- */
-
+	alt_32 bytesPerSample = header_data->Bits_Per_Sample / 8;
+	alt_32 SIZE = 2048;
+	alt_32 SIZE2 = SIZE * 2; // SIZE * num_channels
 	alt_32 totalBytesRead = 0;
-	alt_32 bytesRead1;
-	alt_32 bytesRead2;
-	alt_32 bytesPerSample = header_data->Bits_Per_Sample/8;
-	do {
-		alt_u32 buffer1[SIZE];
-		alt_u32 buffer2[SIZE];
 
-		//Load buffer
-		alt_32 i;
-		bytesRead1 = 0;
-		bytesRead2 = 0;
-		for (i=0; i<SIZE; i+=bytesPerSample){
+	printf("Space: %d\n",alt_up_audio_write_fifo_space(audio_dev,0));
+	alt_u32 buffer1[SIZE];
+	alt_u32 buffer2[SIZE];
+	alt_u16 fileBuffer[SIZE2];
+	alt_32 i=0;
 
-			bytesRead1 += file_read(&file, bytesPerSample, ((euint8*)buffer1)+i);
-			bytesRead2 += file_read(&file, bytesPerSample, ((euint8*)buffer2)+i);
 
+	while (totalBytesRead < header_data->Subchunk2_Size){
+		totalBytesRead += file_read(&file, SIZE2*2, (euint8*)fileBuffer);
+		for (i=0; i<SIZE; i++){
+			buffer1[i] = (alt_32)(fileBuffer[2*i]) << 16;
+			buffer2[i] = (alt_32)(fileBuffer[2*i+1]) << 16;
 		}
+		while(alt_up_audio_write_fifo_space(audio_dev,ALT_UP_AUDIO_RIGHT) < SIZE );
 
-
-/*		float omega = ((2.0*M_PI)*1000)/header_data->Sample_Rate;
-
-		for(i=0;i<SIZE;++i){
-			buffer1[i] = pow(2,30)*sin(omega*i);
-			buffer2[i] = pow(2,30)*sin(omega*i);
-		}
-		bytesRead1 = SIZE;
-		bytesRead2 = SIZE;
-
-*/
-
-
-		if (bytesRead1 != bytesRead2){
-			puttyPrintLine("Uhhhhhhhhhh\n\r");
-			return -1;
-		} else if (bytesRead1 != SIZE || bytesRead2 != SIZE){
-			puttyPrintLine("Corrupt header\n\r");
-			return -1;
-		}
-
-		totalBytesRead += bytesRead1 + bytesRead2;
-
-		while(alt_up_audio_write_fifo_space(audio_dev,0) < SIZE );
-
-		while(alt_up_audio_write_fifo_space(audio_dev,1) < SIZE );
+		while(alt_up_audio_write_fifo_space(audio_dev,ALT_UP_AUDIO_LEFT) < SIZE );
 
 		// Write data into left and right channels  of audio codec FIFO
-		alt_up_audio_write_fifo(audio_dev,(unsigned int*)buffer1,bytesRead1,ALT_UP_AUDIO_RIGHT);
-		alt_up_audio_write_fifo(audio_dev,(unsigned int*)buffer2,bytesRead2,ALT_UP_AUDIO_LEFT);
-	} while (totalBytesRead < header_data->Subchunk2_Size);
+		alt_up_audio_write_fifo(audio_dev,(unsigned int*)buffer1,SIZE,ALT_UP_AUDIO_RIGHT);
+		alt_up_audio_write_fifo(audio_dev,(unsigned int*)buffer2,SIZE,ALT_UP_AUDIO_LEFT);
+	}
 
 	file_fclose(&file);
 
@@ -660,7 +635,6 @@ alt_32 wav_play(alt_32 argc, alt_8* argv[]){
 }
 
 #undef VOL
-#undef SIZE
 #undef SAMP
 
 #endif
