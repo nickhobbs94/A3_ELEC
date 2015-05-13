@@ -498,11 +498,9 @@ alt_32 copy_file(alt_32 argc, alt_8* argv[]){
 }
 
 
-#define VOL 20
-
-
 #define SIZE_OF_HEADER 44
 #define STRING_LEN 4
+#define OUTPUT_BUFFER_LEN 1024
 
 /* Define structure of header */
 typedef struct{
@@ -581,7 +579,7 @@ alt_32 wav_play(alt_32 argc, alt_8* argv[]){
 	switch(header_data->Sample_Rate) {
 	  case 8000:  AUDIO_SetSampleRate(RATE_ADC8K_DAC8K_USB); break;
 	  case 32000: AUDIO_SetSampleRate(RATE_ADC32K_DAC32K_USB); break;
-	  case 44100: AUDIO_SetSampleRate(RATE_ADC44K_DAC44K_USB); printf("44K!\n"); break;
+	  case 44100: AUDIO_SetSampleRate(RATE_ADC44K_DAC44K_USB); break;
 	  case 48000: AUDIO_SetSampleRate(RATE_ADC48K_DAC48K_USB); break;
 	  case 96000: AUDIO_SetSampleRate(RATE_ADC96K_DAC96K_USB); break;
 	  default:  puttyPrintLine("Non-standard sampling rate\n\r"); return -1;
@@ -596,46 +594,92 @@ alt_32 wav_play(alt_32 argc, alt_8* argv[]){
 	puttyPrintLine("\n\rSampleRate: %d\n\rNumChannels: %d\n\r", header_data->Sample_Rate, header_data->Num_Channels);
 	puttyPrintLine("Size: %d\n\rBits Per Sample: %d\n\r", header_data->Subchunk2_Size, header_data->Bits_Per_Sample);
 
+	/* Check the number of channels */
+	if (header_data->Num_Channels != 1 && header_data->Num_Channels != 2){
+		puttyPrintLine("Invalid number of channels\n\r");
+	}
 
-	/* ------------------------------------------------- Play the audio data ------------------------------------------------- */
+	/* --------------------------------------- Play the audio data --------------------------------------- */
 	alt_32 bytesPerSample = header_data->Bits_Per_Sample / 8;
-	alt_32 SIZE = 2048;
-	alt_32 SIZE2 = SIZE * 2; // SIZE * num_channels
+	alt_32 FILE_BUFFER_LEN = OUTPUT_BUFFER_LEN * header_data->Num_Channels * bytesPerSample;
 	alt_32 totalBytesRead = 0;
+	
+	alt_u32 buffer1[OUTPUT_BUFFER_LEN];
+	alt_u32 buffer2[OUTPUT_BUFFER_LEN];
 
-	printf("Space: %d\n",alt_up_audio_write_fifo_space(audio_dev,0));
-	alt_u32 buffer1[SIZE];
-	alt_u32 buffer2[SIZE];
-	alt_u16 fileBuffer[SIZE2];
-	alt_32 i=0;
+	/* Init file buffer depending on sample depth */
 
+	alt_u8 *fileBuffer = malloc(FILE_BUFFER_LEN);
 
+	printf("%d \t %d\n", FILE_BUFFER_LEN, OUTPUT_BUFFER_LEN);
+
+	alt_32 i;
+	alt_32 bytesRead;
+	
+	/* Loop over the length of the file */
 	while (totalBytesRead < header_data->Subchunk2_Size){
-		totalBytesRead += file_read(&file, SIZE2*2, (euint8*)fileBuffer);
-		for (i=0; i<SIZE; i++){
-			buffer1[i] = (alt_32)(fileBuffer[2*i]) << 16;
-			buffer2[i] = (alt_32)(fileBuffer[2*i+1]) << 16;
+		/* Read enough data for the number of channels to load one buffer's worth each */
+		bytesRead = file_read(&file, FILE_BUFFER_LEN, fileBuffer);
+		totalBytesRead += bytesRead;
+
+		/* If the bytes just read is not large enough and the end of the file 
+			has not been reached, then return an error */
+		if (bytesRead != FILE_BUFFER_LEN   &&   totalBytesRead != header_data->Subchunk2_Size){
+			puttyPrintLine("End of file was unexpectedly reached %d %d\n\r", bytesRead, totalBytesRead);
+			free(fileBuffer);
+			file_fclose(&file);
+			if (UNMOUNT_SD_AFTER_OPERATION){
+				SD_unmount();
+			}
+			return -1;
 		}
-		while(alt_up_audio_write_fifo_space(audio_dev,ALT_UP_AUDIO_RIGHT) < SIZE );
 
-		while(alt_up_audio_write_fifo_space(audio_dev,ALT_UP_AUDIO_LEFT) < SIZE );
+		/* Split the buffer into the number of channels and amplify if not 32 bit sampling */
+		for (i=0; i<OUTPUT_BUFFER_LEN; i++){
+			switch(header_data->Bits_Per_Sample){
+				case 8:
+					buffer1[i] = *((alt_u8*)fileBuffer + (header_data->Num_Channels)*i);
+					buffer2[i] = *((alt_u8*)fileBuffer + (header_data->Num_Channels)*i + (header_data->Num_Channels)/2);
+					buffer1[i] = (buffer1[i] << 24)/2;
+					buffer2[i] = (buffer2[i] << 24)/2;
+					break;
+				case 16:
+					buffer1[i] = *((alt_u16*)fileBuffer + header_data->Num_Channels*i);
+					buffer2[i] = *((alt_u16*)fileBuffer + header_data->Num_Channels*i + header_data->Num_Channels/2);
+					buffer1[i] = (buffer1[i] << 16);
+					buffer2[i] = (buffer2[i] << 16);
+					break;
+				case 32:
+					buffer1[i] = *((alt_u32*)fileBuffer + (header_data->Num_Channels)*i);
+					buffer2[i] = *((alt_u32*)fileBuffer + (header_data->Num_Channels)*i + (header_data->Num_Channels)/2);
+					break;
+				default:
+					puttyPrintLine("Unsupported number of sampling bits\n\r");
+					file_fclose(&file);
+					if (UNMOUNT_SD_AFTER_OPERATION){
+						SD_unmount();
+					}
+					free(fileBuffer);
+					return -1;
+			}
+		}
 
-		// Write data into left and right channels  of audio codec FIFO
-		alt_up_audio_write_fifo(audio_dev,(unsigned int*)buffer1,SIZE,ALT_UP_AUDIO_RIGHT);
-		alt_up_audio_write_fifo(audio_dev,(unsigned int*)buffer2,SIZE,ALT_UP_AUDIO_LEFT);
+		/* Wait for both left and right FIFOs to be free */
+		while(alt_up_audio_write_fifo_space(audio_dev,ALT_UP_AUDIO_RIGHT) < OUTPUT_BUFFER_LEN);
+		while(alt_up_audio_write_fifo_space(audio_dev,ALT_UP_AUDIO_LEFT) < OUTPUT_BUFFER_LEN);
+
+		/* Write data into right and left channel of audio codec FIFO */
+		alt_up_audio_write_fifo(audio_dev, (unsigned int*)buffer1, OUTPUT_BUFFER_LEN, ALT_UP_AUDIO_RIGHT);
+		alt_up_audio_write_fifo(audio_dev, (unsigned int*)buffer2, OUTPUT_BUFFER_LEN, ALT_UP_AUDIO_LEFT);
 	}
 
 	file_fclose(&file);
-
+	free(fileBuffer);
 
     if (UNMOUNT_SD_AFTER_OPERATION){
 		SD_unmount();
 	}
     return 0;
 }
-
-#undef VOL
-#undef SAMP
-
 #endif
 

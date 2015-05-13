@@ -1,2 +1,4 @@
 .DS_Store
+copyToWorkspace.sh
+getFromWorkspace.sh
 
