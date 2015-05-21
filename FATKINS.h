@@ -54,5 +54,9 @@ struct FAT_infoSector{
 	alt_8 signature2[2];
 };
 
+struct directory{
+	//alt_8
+};
+
 #endif
 

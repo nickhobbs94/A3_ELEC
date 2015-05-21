@@ -6,6 +6,8 @@
 #include <stdio.h>
 
 #define SECTOR_SIZE 512
+#define CLUSTERS_IN_FATSECTOR 128
+#define BYTES_PER_ENTRY 4
 
 /*alt_32 sd_readSector(alt_32 address, alt_8* buffer){
 	FILE* fp = fopen("/Users/nicholashobbs/Desktop/SD.dmg", "r");
@@ -23,8 +25,8 @@
 void printSector(alt_u8* buffer){
 	alt_32 i;
 	for (i=0; i<512; i++){
-		//printf("%02X  ", buffer[i] & 0xff);
-		printf("%c", buffer[i]);
+		printf("%02X  ", buffer[i] & 0xff);
+		//printf("%c", buffer[i]);
 		if ((i+1) % 8 == 0){
 			printf("\n");
 		}
@@ -33,6 +35,8 @@ void printSector(alt_u8* buffer){
 
 
 }
+
+
 
 /*int main(void){
 	alt_8 buffer[512];
@@ -54,6 +58,14 @@ alt_32 extract_little(alt_u8* buffer, alt_32 size){
 	return sum;
 }
 
+alt_32 getFATentry(alt_32 clusterNum, alt_32 startingSectorOfFAT){
+	alt_u8 buffer[SECTOR_SIZE];
+	alt_32 FATSector = startingSectorOfFAT + clusterNum / CLUSTERS_IN_FATSECTOR;
+	alt_32 clusterByteOffset = BYTES_PER_ENTRY * (clusterNum % CLUSTERS_IN_FATSECTOR); // 4 bytes for FAT32 entries
+	sd_readSector(FATSector, buffer);
+	alt_u8* FAT_Entry = buffer + clusterByteOffset;
+	return extract_little(FAT_Entry, BYTES_PER_ENTRY);
+}
 
 int main(void){
 	printf("%x\n", if_initInterface());
@@ -100,9 +112,18 @@ int main(void){
 	alt_32 cluster_num = rootClusterStart;
 	alt_32 clusterFirstSector = firstClusterStart + sectorsPerCluster * (cluster_num-2);
 
+	//sd_readSector(clusterFirstSector, buffer);
+	//printSector(buffer);
+	alt_32 i;
+	for (i=0; i<1; i++){
+		sd_readSector(firstClusterStart+i, buffer);
+		printSector(buffer);
+	}
+	clusterFirstSector = firstClusterStart + sectorsPerCluster * (0x0101-2);
 	sd_readSector(clusterFirstSector, buffer);
 	printSector(buffer);
 
+	printf("%x\n",getFATentry(0x0101, startingSectorOfFAT));
 
 	return 0;
 }
