@@ -4,6 +4,9 @@
 
 #include <stdio.h>
 #include "alt_types.h"
+#include "conversions.h"
+
+#define   NUM_FAT_PARTITIONS  4 
 
 /* Special codes for file entries in directory sector */
 #define   END_OF_DIR         0x00
@@ -29,14 +32,7 @@
 #define  LAST_PART_LFN     4
 #define  OTHER_PART_LFN    0
 
-typedef struct masterBootRecord{
-	alt_u8 bootCode[446];
-	alt_u8 partitionTable1[16];
-	alt_u8 partitionTable2[16];
-	alt_u8 partitionTable3[16];
-	alt_u8 partitionTable4[16];
-	alt_u8 signature[2];
-} masterBootRecord;
+/* --------------------------- raw buffer structures --------------------------- */
 
 typedef struct partitionTable{
 	alt_u8 bootFlag;
@@ -46,6 +42,12 @@ typedef struct partitionTable{
 	alt_u8 LBA_begin[4];
 	alt_u8 Num_sectors[4];
 } partitionTable;
+
+typedef struct masterBootRecord{
+	alt_u8 bootCode[446];
+	partitionTable partition_tables[4];
+	alt_u8 signature[2];
+} masterBootRecord;
 
 typedef struct bootSector{
 	alt_u8 jumpInstruction[3];
@@ -95,37 +97,68 @@ typedef struct directoryEntry{      // File entry in the sector of a directory
 } directoryEntry;
 
 
-/* --------------------------- extracted structures --------------------------- */
+/* --------------------------- extracted structures and ther init functions --------------------------- */
 
-
-/* Boot sector important info structure */
+/* --------------------------- Boot sector important info structure --------------------------- */
 typedef struct EmbeddedBootSector{
-	alt_32 num_reserved_sectors;
+	alt_32 address;
+	alt_16 num_reserved_sectors;
 	alt_32 startingSectorOfFAT;
-	alt_32 numOfFATs;
+	alt_16 numOfFATs;
 	alt_32 sectorsPerFAT;
 	alt_32 firstClusterStart;
 	alt_32 sectorsPerCluster;
 	alt_32 rootClusterStart;
 } EmbeddedBootSector;
 
-/* Struct with everything important about a partition */
+EmbeddedBootSector newEmbeddedBootSector(alt_u8* buffer, alt_32 bootSectorAddress){
+	EmbeddedBootSector newBootSector;
+	bootSector* rawBootSector = (bootSector*) buffer;
+
+	newBootSector.address = bootSectorAddress;
+	newBootSector.num_reserved_sectors = extract_little(rawBootSector->numReservedSectors, 2);
+	newBootSector.startingSectorOfFAT = bootSectorAddress + newBootSector.num_reserved_sectors; 
+	newBootSector.numOfFATs = rawBootSector->numFileAllocTables;
+	newBootSector.sectorsPerFAT = extract_little(rawBootSector->sectorsPerFAT, 4);
+	newBootSector.firstClusterStart = newBootSector.startingSectorOfFAT + newBootSector.numOfFATs * newBootSector.sectorsPerFAT;
+	newBootSector.sectorsPerCluster = rawBootSector->sectorsPerCluster;
+	newBootSector.rootClusterStart = extract_little(rawBootSector->clusterNumOfRootDir, 4);
+	return newBootSector;
+}
+
+/* --------------------------- Struct with everything important about a partition --------------------------- */
 typedef struct EmbeddedPartition{
 	alt_u8 typeCode; // is it FAT32?
 	alt_32 bootSectorAddress;
-	EmbeddedBootSector bootSector;
+	alt_32 numSectors;
 } EmbeddedPartition;
 
+EmbeddedPartition newEmbeddedPartition(alt_u8* buffer){
+	EmbeddedPartition newPartition;
+	partitionTable* rawTable = (partitionTable*) buffer;
+
+	newPartition.typeCode = rawTable->typeCode;
+	newPartition.bootSectorAddress = extract_little(rawTable->LBA_begin, 4);
+	newPartition.numSectors = extract_little(rawTable->Num_sectors, 4);
+
+	return newPartition;
+}
+
+/* --------------------------- File System Info struct (used for reading, etc) --------------------------- */
 typedef struct FileSystemInfo{
-	EmbeddedPartition partition; // Sector address of current partition
+	alt_u8 partition_number; // offset in EmbeddedFileSystem->partitions[]
+	EmbeddedPartition partition; // current partition
+	EmbeddedBootSector bootSector; // boot sector of current partition
 } FileSystemInfo;
 
-/* Struct with everything important about the file system */
+/* --------------------------- Embedded File System --------------------------- */
 typedef struct EmbeddedFileSystem{
-	alt_u8 numberOfPartitions;
-	alt_32 addressesOfPartitions;
-	FileSystemInfo myFs;  // current partition
+	alt_u8 populatedPartitionCount;
+	EmbeddedPartition partitions[NUM_FAT_PARTITIONS];
+	FileSystemInfo myFs;  // current partition's boot codes etc.
 } EmbeddedFileSystem;
+
+/* -------------- Other structs ---------------- */
 
 typedef struct File{
 	alt_u8 FileName[12]; // 8 (name) + 3 (extension) + 1 (null terminate)
@@ -135,6 +168,7 @@ typedef struct File{
 
 typedef struct DirList{
 	File currentEntry;
+	alt_32 startingCluster;
 } DirList;
 
 
