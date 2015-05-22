@@ -13,7 +13,7 @@
 
 /* Only when not using NIOS board */
 alt_32 sd_readSector(alt_32 address, alt_u8* buffer){
-	FILE* fp = fopen("/Users/nicholashobbs/Desktop/SD.dmg", "r");
+	FILE* fp = fopen("/Users/alistair/Desktop/SD.dmg", "r");
 	//FILE* fp = fopen("/Users/nicholashobbs/Downloads/Torrent/2015-05-05-raspbian-wheezy.img", "r");
 	if (fp == NULL){
 		return -1;
@@ -135,7 +135,6 @@ alt_32 efs_init(EmbeddedFileSystem* fileSystem, alt_8 deviceName[]){
 alt_32 findFile(FileSystemInfo* myFs, alt_8 filename[]){
 	printf("%s\n",filename);
 	string_replace(filename, 'e', '.', 1, -1);
-	stringCapitalise
 	printf("%s\n",filename);
 	printf("%d\n", altstrcount(filename, 'e'));
 	return 0x10D;
