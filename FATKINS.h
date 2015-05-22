@@ -136,7 +136,6 @@ typedef struct EmbeddedPartition{
 EmbeddedPartition newEmbeddedPartition(alt_u8* buffer){
 	EmbeddedPartition newPartition;
 	partitionTable* rawTable = (partitionTable*) buffer;
-
 	newPartition.typeCode = rawTable->typeCode;
 	newPartition.bootSectorAddress = extract_little(rawTable->LBA_begin, 4);
 	newPartition.numSectors = extract_little(rawTable->Num_sectors, 4);
@@ -162,6 +161,8 @@ typedef struct EmbeddedFileSystem{
 
 typedef struct File{
 	alt_u8 FileName[12]; // 8 (name) + 3 (extension) + 1 (null terminate)
+	alt_32 StartCluster;
+	alt_32 StartSectorOfFAT;
 	alt_32 FileSize;
 	alt_u8 Attribute;
 } File;
