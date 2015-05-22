@@ -68,5 +68,49 @@ void altmemset(alt_8* destination, alt_8 value, alt_32 size){
 	}
 }
 
+/*  string_replace function
+    Arg1: string to edit
+    Arg2: char to find
+    Arg3: char to replace with
+    Arg4: limit the number of times to replace, -1 for unlimited
+    Arg5: +1 for replacing from the start, -1 for replacing from the end
+    Return: count of replacements
+    NOTE: DO NOT GIVE THIS FUNCTION A STRING LITERAL OR YOU WILL GET A BUS ERROR
+*/
+alt_32 string_replace(alt_8 string[], alt_8 find, alt_8 replace, alt_32 limit, alt_32 step){
+    alt_32 string_len = altstrlen(string);
+    alt_32 i;
+    alt_32 count = 0;
+    alt_32 start, finish;
+    if (step > 0){
+        for (i=0; i<string_len; i+=step){
+            if ((string[i] == find) && (count < limit || limit == -1)){
+                string[i] = replace;
+                count++;
+            }
+        }
+    } else if (step < 0){
+        for (i=string_len - 1; i>0; i+=step){
+            if (string[i] == find && (count < limit || limit == -1)){
+                string[i] = replace;
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
+alt_32 altstrcount(alt_8 string[], alt_8 find){
+	alt_32 string_length = altstrlen(string);
+	alt_32 i;
+	alt_32 count = 0;
+	for (i=0; i<string_length; i++){
+		if (string[i] == find){
+			count++;
+		}
+	}
+	return count;
+}
+
 #endif
 

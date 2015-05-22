@@ -4,6 +4,7 @@
 #include "alt_types.h"
 //#include "spi_sd.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include "altstring.h"
 
 #define SECTOR_SIZE 512
@@ -130,14 +131,37 @@ alt_32 efs_init(EmbeddedFileSystem* fileSystem, alt_8 deviceName[]){
 	return 0;
 }
 
-alt_32 file_fopen(File* file, FileSystemInfo* myFs, alt_8 filename[], alt_u8 mode){
-	file->StartCluster = 6;
+//TODO find cluster number from filename
+alt_32 findFile(FileSystemInfo* myFs, alt_8 filename[]){
+	printf("%s\n",filename);
+	string_replace(filename, 'e', '.', 1, -1);
+	stringCapitalise
+	printf("%s\n",filename);
+	printf("%d\n", altstrcount(filename, 'e'));
+	return 0x10D;
+}
+
+alt_32 file_fopen(File* file, FileSystemInfo* myFs, alt_8 filenameLiteral[], alt_u8 mode){
+	alt_8* filename = malloc(altstrlen(filenameLiteral));
+	if (filename == NULL) return -1;
+	altstrcpy(filename, filenameLiteral);
+	file->StartCluster = findFile(myFs, filename);
 	file->StartSectorOfFAT = myFs->bootSector.startingSectorOfFAT;
+	file->StartSector = (file->StartCluster - 2)*myFs->bootSector.sectorsPerCluster + myFs->bootSector.firstClusterStart;
+	free(filename);
 	return 0;
 }
 
 alt_32 file_read(File* file, alt_32 length, alt_u8 buffer[]){
 	printf("FAT ENTRY OF CLUSTER %x: %x\n", file->StartCluster, getFATentry(file->StartCluster, file->StartSectorOfFAT));
+	alt_u8 buf[512];
+	sd_readSector(file->StartSector, buf);
+	printSector(buf);
+	
+	alt_32 i;
+	for (i=0; i<length; i++){
+		buffer[i] = buf[i];
+	}
 	return 0;
 }
 
@@ -164,7 +188,7 @@ int main(void){
 
 	check = file_read(&file, 100, buffer);
 	printf("Check: %d\n", check);
-	//printf("Contents:\n%s", buffer);
+	printf("Contents:\n%s\n", buffer);
 
 
 	return 0;

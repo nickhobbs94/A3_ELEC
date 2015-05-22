@@ -162,8 +162,10 @@ typedef struct EmbeddedFileSystem{
 typedef struct File{
 	alt_u8 FileName[12]; // 8 (name) + 3 (extension) + 1 (null terminate)
 	alt_32 StartCluster;
+	alt_32 StartSector;
 	alt_32 StartSectorOfFAT;
 	alt_32 FileSize;
+	alt_32 currentPosition; // how much of the file has been read?
 	alt_u8 Attribute;
 } File;
 
