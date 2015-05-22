@@ -22,7 +22,7 @@ alt_32 intfromstring(alt_8 string[]);
 void decimaltobinary(alt_32* binaryArray, alt_32 decimal);
 void decimaltohex(alt_32* hexArray, alt_32 decimal);
 alt_8 charfromint(alt_32 number);
-
+void uppercasestring(alt_u8* lowerCaseString);
 
 /* ----------------------------------- Functions ----------------------------------- */
 
@@ -102,6 +102,16 @@ alt_32 extract_little(alt_u8* buffer, alt_32 size){
 		sum += buffer[i] << i*8;
 	}
 	return sum;
+}
+
+void uppercasestring(alt_u8* lowerCaseString){
+
+	while(*lowerCaseString != '\0'){
+		if(*lowerCaseString >= 'a' && *lowerCaseString <= 'z'){
+			*lowerCaseString -= 0x20;
+		}
+		++lowerCaseString;
+	}
 }
 
 #endif
