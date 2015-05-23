@@ -17,6 +17,7 @@ terminalParse.h
 /* Function prototypes */
 alt_8 string_parser(alt_8* string, alt_8* array_of_words[]);
 alt_32 command_interpreter(alt_32 argc, alt_8* argv[]);
+alt_8 split_string(alt_8* string, alt_8* array_of_words[], alt_8 character);
 
 /* ----------------------------------- Functions ----------------------------------- */
 
