@@ -132,12 +132,15 @@ alt_32 efs_init(EmbeddedFileSystem* fileSystem, alt_8 deviceName[]){
 	fileSystem->myFs.partition = fileSystem->partitions[0];
 
 	fileSystem->myFs.bootSector = getBootSector(fileSystem->partitions[0].bootSectorAddress);
-	printEFS(fileSystem);
+	//printEFS(fileSystem);
 
 	return 0;
 }
 
-File searchDirectory(alt_32 directoryCluster, alt_8 filename[], FileSystemInfo* myFs){
+File searchDirectory(alt_32 directoryCluster, alt_8 rawfilename[], FileSystemInfo* myFs){
+	alt_8 filename[12];
+	formatStringForFAT(rawfilename, filename);
+
 	File foundFile;
 	alt_u8 buffer[SECTOR_SIZE];
 	//TODO: format string properly
@@ -151,8 +154,10 @@ File searchDirectory(alt_32 directoryCluster, alt_8 filename[], FileSystemInfo* 
 		foundFile.startSector = (foundFile.startCluster  - 2) * myFs->bootSector.sectorsPerCluster + myFs->bootSector.firstClusterStart;
 		foundFile.startSectorOfFAT = myFs->bootSector.startingSectorOfFAT;
 		if (altstrcmp(foundFile.fileName, filename) == 0){
+			//printf("File name is %s\n", filename);
 			return foundFile;
 		}
+		//printf("%s\n", foundFile.fileName);
 
 		FAT_result = getFATentry(directoryCluster, myFs->bootSector.startingSectorOfFAT);
 		entry++;
@@ -180,7 +185,7 @@ File findFile(FileSystemInfo* myFs, alt_8 filepath[]){
 		printf("%s\n", filenameArray[wordCount]);
 		printf("%d\n", wordCount);
 		file = searchDirectory(clusterNumber, filenameArray[wordCount], myFs);
-		printf("%d\n", file.attributes);
+		printf("%s\n", file.fileName);
 		if(file.fileName[0] & END_OF_DIR){
 			printf("Error: End of Directory\n");
 			break;
@@ -205,21 +210,22 @@ alt_32 file_fopen(File* file, FileSystemInfo* myFs, alt_8 filenameLiteral[], alt
 }
 
 alt_32 file_read(File* file, alt_32 length, alt_u8 buffer[]){
-	printf("FAT ENTRY OF CLUSTER %x: %x\n", file->startCluster, getFATentry(file->startCluster, file->startSectorOfFAT));
+	//printf("FAT ENTRY OF CLUSTER %x: %x\n", file->startCluster, getFATentry(file->startCluster, file->startSectorOfFAT));
 	alt_u8 buf[SECTOR_SIZE];
 	//sd_readSector(file->startSector, buf);
 	//printSector(buf);
 	
 	alt_32 i;
-	for (i=0; i<length && i<file->fileSize; i++){
+	for (i=0; i+file->currentPosition<length && i+file->currentPosition<file->fileSize; i++){
 		if (i%SECTOR_SIZE == 0){
 			sd_readSector(file->startSector + i/SECTOR_SIZE + file->currentPosition, buf);
-			printf("%d\n", i);
+			//printf("reading %d\n", i);
 		}
 		buffer[i] = buf[i%SECTOR_SIZE];
 	}
-	printf("%d\n", file->fileSize);
-	return 0;
+	file->currentPosition += i;
+	//printf("%d\n", file->fileSize);
+	return i;
 }
 
 alt_32 file_fclose(File* file){
@@ -240,30 +246,24 @@ int main(void){
 	File file;
 
 	alt_u8 buffer[100];
-	check = file_fopen(&file, &(efsl.myFs), "README  TXT", 'r');
+	check = file_fopen(&file, &(efsl.myFs), "/readme.txt", 'r');
 
 	if (check != 0){
 		printf("Could not open file\n");
 		return -1;
 	}
-
-
-	check = file_read(&file, 100, buffer);
-	printf("Check: %d\n", check);
-	printf("Contents:\n%s\n", buffer);
-	printf("Words\n");
+	do {
+		check = file_read(&file, 100, buffer);
+		alt_32 i;
+		for (i=0; i<check; i++){
+			printf("%c", buffer[i]);
+		}
+	} while (check != 0);
 
 	//check = searchDirectory(2, "README  TXT", &(efsl.myFs)).startCluster;
 	//printf("README.TXT is at cluster %x\n", check);
 
-
-
 	file_fclose(&file);
-
-	alt_8 i[] = "r";
-	alt_8 o[12];
-	printf("%x\n", formatStringForFAT(i, o));
-	printf("%s\n%s\n", i, o);
 
 
 	return 0;

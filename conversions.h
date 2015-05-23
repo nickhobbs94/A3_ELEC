@@ -131,7 +131,6 @@ alt_32 formatStringForFAT(alt_8* instring, alt_8* outstring){
 	check = string_replace(instringCopy, '.', '\0', 1, -1); // replce 1 period from the back of the string with a null
 	if (check == 1){
 		fileExtension = instringCopy + altstrlen(instringCopy) + 1;
-		printf("FILE %s\n%s\n", instringCopy, fileExtension);
 	} else {
 		fileExtension = (alt_8*) &"   ";
 	}
