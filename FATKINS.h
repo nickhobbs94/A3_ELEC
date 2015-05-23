@@ -168,11 +168,11 @@ typedef struct EmbeddedFileSystem{
 typedef struct File{
 	alt_8 fileName[12]; // 8 (name) + 3 (extension) + 1 (null terminate)
 	alt_32 startCluster;
-	alt_32 startSector;
-	alt_32 startSectorOfFAT;
 	alt_32 fileSize;
 	alt_32 currentPosition; // how much of the file has been read?
 	alt_u8 attributes;
+	alt_32 startSectorOfFAT;
+	alt_32 startSector;
 } File;
 
 File newFile(alt_u8* buffer, alt_32 offset){
@@ -184,6 +184,8 @@ File newFile(alt_u8* buffer, alt_32 offset){
 	rawEntry->fileAttributes = '\0';
 	altstrcpy((alt_8*)file.fileName, (alt_8*)rawEntry->fileName);
 	file.startCluster = (extract_little(rawEntry->startCluster_msb, 2)<<2) + (extract_little(rawEntry->startCluster_lsb, 2));
+	file.currentPosition = 0;
+	file.fileSize = extract_little(rawEntry->fileSizeInBytes, 4);
 
 	return file;
 }
