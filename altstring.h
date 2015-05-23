@@ -112,5 +112,33 @@ alt_32 altstrcount(alt_8 string[], alt_8 find){
 	return count;
 }
 
+
+alt_8 altsplitstring(alt_8* string, alt_8* array_of_words[], alt_8 character){
+	if (*(string)=='\0'){
+		return 0;   // return 0 if empty string
+	}
+	alt_u8 count = 0;
+	alt_32 string_length = altstrlen(string);
+	
+	if (*(string)!=character){	// if the first character is not a space then start the first word there
+		count++;
+		array_of_words[0] = string;
+	}
+	alt_32 i;
+	for (i=0; i<string_length; i++){	
+		if (*(string+i)==character){
+			*(string+i)='\0'; // replace spaces with nulls
+			if(*(string+i+1)!='\0' && *(string+i+1)!=character){
+				array_of_words[count]=string+i+1; // set pointer to the next word
+				count++;
+			}
+		} else if (*(string+i)=='\0'){
+			i=string_length;
+		}
+	}
+	return count;  // returns the number of words found
+}
+
+
 #endif
 
