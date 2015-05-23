@@ -158,7 +158,7 @@ File searchDirectory(alt_32 directoryCluster, alt_8 filename[], FileSystemInfo* 
 }
 
 //TODO find cluster number from filename
-alt_32 findFile(FileSystemInfo* myFs, alt_8 filepath[]){
+File findFile(FileSystemInfo* myFs, alt_8 filepath[]){
 	alt_32 fileNamesCount = altstrcount(filepath, '/');
 	alt_8 numberOfWords;
 	alt_32 clusterNumber = myFs->bootSector.rootClusterStart;
@@ -172,31 +172,23 @@ alt_32 findFile(FileSystemInfo* myFs, alt_8 filepath[]){
 	alt_8 *findFileName = filenameArray[numberOfWords-1];
 
 	alt_32 wordCount;
-	for(wordCount = 0; wordCount <= numberOfWords; ++wordCount){
+	for(wordCount = 0; wordCount < numberOfWords; ++wordCount){
 		printf("%s\n", filenameArray[wordCount]);
 		printf("%d\n", wordCount);
 		file = searchDirectory(clusterNumber, filenameArray[wordCount], myFs);
 		printf("%s\n", file.fileName);
 		if(file.fileName[0] & END_OF_DIR){
 			printf("Error: End of Directory\n");
-			free(filenameArray);
-			return -1;
+			break;
 		} else if (file.attributes & SUBDIRECTORY){
 			clusterNumber = file.startCluster;
-		} else {
-			if(altstrcmp(file.fileName, findFileName) == 0){
-				free(filenameArray);
-				return file.startCluster;
-			} else {
-				printf("Error: File name in path is not correct \n In Path: %s \n File Name: %s\n", filepath, file.fileName);
-				free(filenameArray);
-				return -1;
-			}
+		} else if(altstrcmp(file.fileName, findFileName) != 0){
+			printf("Error: File name in path is not correct \n In Path: %s \n File Name: %s\n", filepath, file.fileName);
+			break;
 		}
 	}
-	printf("Error: made it end of function");
 	free(filenameArray);
-	return -1; 
+	return file; 
 }
 
 alt_32 file_fopen(File* file, FileSystemInfo* myFs, alt_8 filenameLiteral[], alt_u8 mode){
@@ -254,6 +246,7 @@ int main(void){
 	check = file_read(&file, 100, buffer);
 	printf("Check: %d\n", check);
 	printf("Contents:\n%s\n", buffer);
+	printf("Words\n");
 
 	//check = searchDirectory(2, "README  TXT", &(efsl.myFs)).startCluster;
 	//printf("README.TXT is at cluster %x\n", check);
