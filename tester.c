@@ -138,6 +138,7 @@ alt_32 efs_init(EmbeddedFileSystem* fileSystem, alt_8 deviceName[]){
 }
 
 File searchDirectory(alt_32 directoryCluster, alt_8 rawfilename[], FileSystemInfo* myFs){
+	//printf("searchDirectory(%x,%s,%x)\n", directoryCluster, rawfilename, myFs);
 	alt_8 filename[12];
 	formatStringForFAT(rawfilename, filename);
 
@@ -150,10 +151,13 @@ File searchDirectory(alt_32 directoryCluster, alt_8 rawfilename[], FileSystemInf
 	do {
 		currentSector = startingSector + entry / DIRECTORY_ENTRIES_PER_SECTOR;
 		sd_readSector(currentSector, buffer);
+		//printSector(buffer);
+		//printf("%x\n", currentSector);
 		foundFile = newFile(buffer, entry % DIRECTORY_ENTRIES_PER_SECTOR);
 		foundFile.startSector = (foundFile.startCluster  - 2) * myFs->bootSector.sectorsPerCluster + myFs->bootSector.firstClusterStart;
 		foundFile.startSectorOfFAT = myFs->bootSector.startingSectorOfFAT;
 		if (altstrcmp(foundFile.fileName, filename) == 0){
+			//printf("Found file's filename %s\n", foundFile.fileName);
 			//printf("File name is %s\n", filename);
 			return foundFile;
 		}
@@ -163,23 +167,27 @@ File searchDirectory(alt_32 directoryCluster, alt_8 rawfilename[], FileSystemInf
 		entry++;
 	} while (foundFile.fileName[0] != END_OF_DIR);
 
+
 	return foundFile;
 }
 
 //TODO find cluster number from filename
 File findFile(FileSystemInfo* myFs, alt_8 filepath[]){
-	alt_32 fileNamesCount = altstrcount(filepath, '/');
+	if(filepath[0] == '/'){
+		filepath++;
+	}
+	alt_32 fileNamesCount = altstrcount(filepath, '/') + 1;
+	alt_8 formattedName[12];
 	alt_8 numberOfWords;
 	alt_32 clusterNumber = myFs->bootSector.rootClusterStart;
 	File file;
 
-	if(filepath[0] != '/'){
-		fileNamesCount++;
-	}
+	
 
 	alt_8 **filenameArray = malloc(MAX_FILE_NAME_SIZE*fileNamesCount);
 	numberOfWords = altsplitstring(filepath, filenameArray, '/');
 	alt_8 *findFileName = filenameArray[numberOfWords-1];
+	formatStringForFAT(findFileName, formattedName);
 
 	// int i = 0;
 	// for(; i < numberOfWords; ++i)
@@ -192,13 +200,14 @@ File findFile(FileSystemInfo* myFs, alt_8 filepath[]){
 		printf("%s\n", filenameArray[wordCount]);
 		
 		file = searchDirectory(clusterNumber, filenameArray[wordCount], myFs);
+		//printf("XXXXXX: %s\n", file.fileName);
 
 		if(file.fileName[0] & END_OF_DIR){
 			printf("Error: End of Directory\n");
 			break;
 		} else if (file.attributes & SUBDIRECTORY){
 			clusterNumber = file.startCluster;
-		} else if(altstrcmp(file.fileName, findFileName) != 0){
+		} else if(altstrcmp(file.fileName, formattedName) != 0){
 			printf("Error: File name in path is not correct \n");
 			printf("file.fileName: %s\n", file.fileName);
 			printf("findFileName: %s\n", findFileName);
@@ -260,9 +269,9 @@ int main(void){
 	alt_u8 buffer[100];
 
 	printf("\n~~WITHOUT SLASH~~\n");
-	check = file_fopen(&file, &(efsl.myFs), "FOLDER/FILE    TXT", 'r');
+	check = file_fopen(&file, &(efsl.myFs), "FOLDER/file", 'r');
 	printf("\n~~WITH SLASH~~\n");
-	check = file_fopen(&file, &(efsl.myFs), "/FOLDER/FILE    TXT", 'r');
+	check = file_fopen(&file, &(efsl.myFs), "/FOLDER/file", 'r');
 
 	check = file_fopen(&file, &(efsl.myFs), "/readme.txt", 'r');
 
