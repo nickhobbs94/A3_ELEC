@@ -237,15 +237,13 @@ alt_32 file_read(File* file, alt_32 length, alt_u8 buffer[]){
 	//printSector(buf);
 	
 	alt_32 i;
-	for (i=0; i+file->currentPosition<length && i+file->currentPosition<file->fileSize; i++){
+	for (i=0; i<length && i+file->currentPosition<file->fileSize; i++){
 		if (i%SECTOR_SIZE == 0){
-			sd_readSector(file->startSector + i/SECTOR_SIZE + file->currentPosition, buf);
-			//printf("reading %d\n", i);
+			sd_readSector(file->startSector + (i + file->currentPosition)/SECTOR_SIZE, buf);
 		}
 		buffer[i] = buf[i%SECTOR_SIZE];
 	}
 	file->currentPosition += i;
-	//printf("%d\n", file->fileSize);
 	return i;
 }
 
@@ -268,12 +266,7 @@ int main(void){
 
 	alt_u8 buffer[100];
 
-	printf("\n~~WITHOUT SLASH~~\n");
-	check = file_fopen(&file, &(efsl.myFs), "FOLDER/file", 'r');
-	printf("\n~~WITH SLASH~~\n");
-	check = file_fopen(&file, &(efsl.myFs), "/FOLDER/file", 'r');
-
-	check = file_fopen(&file, &(efsl.myFs), "/readme.txt", 'r');
+	check = file_fopen(&file, &(efsl.myFs), "FOLDER/sfolder/ssfolder/ssfile", 'r');
 
 	if (check != 0){
 		printf("Could not open file\n");
@@ -281,6 +274,7 @@ int main(void){
 	}
 	do {
 		check = file_read(&file, 100, buffer);
+		//printf("%d\n", file.fileSize);
 		alt_32 i;
 		for (i=0; i<check; i++){
 			printf("%c", buffer[i]);
