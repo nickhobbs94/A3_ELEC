@@ -192,12 +192,7 @@ File findFile(FileSystemInfo* myFs, alt_8 filepath[]){
 		printf("%s\n", filenameArray[wordCount]);
 		
 		file = searchDirectory(clusterNumber, filenameArray[wordCount], myFs);
-<<<<<<< HEAD
 
-
-=======
-		printf("%s\n", file.fileName);
->>>>>>> 61c9dcfd5991ef9b2efc53b9ec271fa374733018
 		if(file.fileName[0] & END_OF_DIR){
 			printf("Error: End of Directory\n");
 			break;
@@ -263,14 +258,13 @@ int main(void){
 	File file;
 
 	alt_u8 buffer[100];
-<<<<<<< HEAD
+
 	printf("\n~~WITHOUT SLASH~~\n");
 	check = file_fopen(&file, &(efsl.myFs), "FOLDER/FILE    TXT", 'r');
 	printf("\n~~WITH SLASH~~\n");
 	check = file_fopen(&file, &(efsl.myFs), "/FOLDER/FILE    TXT", 'r');
-=======
+
 	check = file_fopen(&file, &(efsl.myFs), "/readme.txt", 'r');
->>>>>>> 61c9dcfd5991ef9b2efc53b9ec271fa374733018
 
 	if (check != 0){
 		printf("Could not open file\n");
