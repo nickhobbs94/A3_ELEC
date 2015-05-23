@@ -1,0 +1,1 @@
+#define OUR_SD_DIR_LOCATION "/home/alistair/Desktop/SD.dmg"

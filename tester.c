@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include "altstring.h"
+#include "SDDir.h"
+
 
 #define SECTOR_SIZE 512
 #define CLUSTERS_IN_FATSECTOR 128
@@ -13,9 +15,11 @@
 #define DIRECTORY_ENTRIES_PER_SECTOR 16
 #define MAX_FILE_NAME_SIZE 12
 
+
+
 /* Only when not using NIOS board */
 alt_32 sd_readSector(alt_32 address, alt_u8* buffer){
-	FILE* fp = fopen("/home/roxy/Desktop/SD.dmg", "r");
+	FILE* fp = fopen(OUR_SD_DIR_LOCATION, "r");
 	//FILE* fp = fopen("/Users/nicholashobbs/Downloads/Torrent/2015-05-05-raspbian-wheezy.img", "r");
 	if (fp == NULL){
 		return -1;
@@ -176,7 +180,7 @@ File findFile(FileSystemInfo* myFs, alt_8 filepath[]){
 		printf("%s\n", filenameArray[wordCount]);
 		printf("%d\n", wordCount);
 		file = searchDirectory(clusterNumber, filenameArray[wordCount], myFs);
-		printf("%s\n", file.fileName);
+		printf("%d\n", file.attributes);
 		if(file.fileName[0] & END_OF_DIR){
 			printf("Error: End of Directory\n");
 			break;
@@ -243,6 +247,7 @@ int main(void){
 		return -1;
 	}
 
+
 	check = file_read(&file, 100, buffer);
 	printf("Check: %d\n", check);
 	printf("Contents:\n%s\n", buffer);
@@ -250,6 +255,8 @@ int main(void){
 
 	//check = searchDirectory(2, "README  TXT", &(efsl.myFs)).startCluster;
 	//printf("README.TXT is at cluster %x\n", check);
+
+
 
 	file_fclose(&file);
 

@@ -2,5 +2,6 @@
 copyToWorkspace.sh
 getFromWorkspace.sh
 clearWorkspace.sh
+SDDir.h
 *.out
 
