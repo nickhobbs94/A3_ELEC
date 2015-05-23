@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include "alt_types.h"
 #include "conversions.h"
+#include "altstring.h"
 
 #define   NUM_FAT_PARTITIONS  4 
 
@@ -99,7 +100,12 @@ typedef struct directoryEntry{      // File entry in the sector of a directory
 
 /* --------------------------- extracted structures and ther init functions --------------------------- */
 
+
+
+
+
 /* --------------------------- Boot sector important info structure --------------------------- */
+
 typedef struct EmbeddedBootSector{
 	alt_32 address;
 	alt_16 num_reserved_sectors;
@@ -160,14 +166,27 @@ typedef struct EmbeddedFileSystem{
 /* -------------- Other structs ---------------- */
 
 typedef struct File{
-	alt_u8 FileName[12]; // 8 (name) + 3 (extension) + 1 (null terminate)
-	alt_32 StartCluster;
-	alt_32 StartSector;
-	alt_32 StartSectorOfFAT;
-	alt_32 FileSize;
+	alt_8 fileName[12]; // 8 (name) + 3 (extension) + 1 (null terminate)
+	alt_32 startCluster;
+	alt_32 startSector;
+	alt_32 startSectorOfFAT;
+	alt_32 fileSize;
 	alt_32 currentPosition; // how much of the file has been read?
-	alt_u8 Attribute;
+	alt_u8 attributes;
 } File;
+
+File newFile(alt_u8* buffer, alt_32 offset){
+	File file;
+	directoryEntry* rawEntry = (directoryEntry*) buffer + offset;
+
+	file.attributes = rawEntry->fileAttributes;
+	/* Null terminate by nulling file attributes */
+	rawEntry->fileAttributes = '\0';
+	altstrcpy((alt_8*)file.fileName, (alt_8*)rawEntry->fileName);
+	file.startCluster = (extract_little(rawEntry->startCluster_msb, 2)<<2) + (extract_little(rawEntry->startCluster_lsb, 2));
+
+	return file;
+}
 
 typedef struct DirList{
 	File currentEntry;

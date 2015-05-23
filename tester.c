@@ -10,10 +10,11 @@
 #define SECTOR_SIZE 512
 #define CLUSTERS_IN_FATSECTOR 128
 #define BYTES_PER_ENTRY 4
+#define DIRECTORY_ENTRIES_PER_SECTOR 16
 
 /* Only when not using NIOS board */
 alt_32 sd_readSector(alt_32 address, alt_u8* buffer){
-	FILE* fp = fopen("/Users/alistair/Desktop/SD.dmg", "r");
+	FILE* fp = fopen("/Users/nicholashobbs/Desktop/SD.dmg", "r");
 	//FILE* fp = fopen("/Users/nicholashobbs/Downloads/Torrent/2015-05-05-raspbian-wheezy.img", "r");
 	if (fp == NULL){
 		return -1;
@@ -131,30 +132,52 @@ alt_32 efs_init(EmbeddedFileSystem* fileSystem, alt_8 deviceName[]){
 	return 0;
 }
 
+File searchDirectory(alt_32 directoryCluster, alt_8 filename[], FileSystemInfo* myFs){
+	File foundFile;
+	alt_u8 buffer[SECTOR_SIZE];
+	//TODO: format string properly
+	alt_32 entry = 0; // current entry in the directory
+	alt_32 startingSector = (directoryCluster  - 2) * myFs->bootSector.sectorsPerCluster + myFs->bootSector.firstClusterStart;
+	alt_32 FAT_result, currentSector;
+	do {
+		currentSector = startingSector + entry / DIRECTORY_ENTRIES_PER_SECTOR;
+		sd_readSector(currentSector, buffer);
+		foundFile = newFile(buffer, entry % DIRECTORY_ENTRIES_PER_SECTOR);
+		if (altstrcmp(foundFile.fileName, filename) == 0){
+			return foundFile;
+		}
+
+		FAT_result = getFATentry(directoryCluster, myFs->bootSector.startingSectorOfFAT);
+		entry++;
+	} while (foundFile.fileName[0] != END_OF_DIR);
+
+	return foundFile;
+}
+
 //TODO find cluster number from filename
 alt_32 findFile(FileSystemInfo* myFs, alt_8 filename[]){
 	printf("%s\n",filename);
 	string_replace(filename, 'e', '.', 1, -1);
 	printf("%s\n",filename);
 	printf("%d\n", altstrcount(filename, 'e'));
-	return 0x10D;
+	return 0xe0;
 }
 
 alt_32 file_fopen(File* file, FileSystemInfo* myFs, alt_8 filenameLiteral[], alt_u8 mode){
 	alt_8* filename = malloc(altstrlen(filenameLiteral));
 	if (filename == NULL) return -1;
 	altstrcpy(filename, filenameLiteral);
-	file->StartCluster = findFile(myFs, filename);
-	file->StartSectorOfFAT = myFs->bootSector.startingSectorOfFAT;
-	file->StartSector = (file->StartCluster - 2)*myFs->bootSector.sectorsPerCluster + myFs->bootSector.firstClusterStart;
+	file->startCluster = findFile(myFs, filename);
+	file->startSectorOfFAT = myFs->bootSector.startingSectorOfFAT;
+	file->startSector = (file->startCluster - 2)*myFs->bootSector.sectorsPerCluster + myFs->bootSector.firstClusterStart;
 	free(filename);
 	return 0;
 }
 
 alt_32 file_read(File* file, alt_32 length, alt_u8 buffer[]){
-	printf("FAT ENTRY OF CLUSTER %x: %x\n", file->StartCluster, getFATentry(file->StartCluster, file->StartSectorOfFAT));
+	printf("FAT ENTRY OF CLUSTER %x: %x\n", file->startCluster, getFATentry(file->startCluster, file->startSectorOfFAT));
 	alt_u8 buf[512];
-	sd_readSector(file->StartSector, buf);
+	sd_readSector(file->startSector, buf);
 	printSector(buf);
 	
 	alt_32 i;
@@ -188,6 +211,9 @@ int main(void){
 	check = file_read(&file, 100, buffer);
 	printf("Check: %d\n", check);
 	printf("Contents:\n%s\n", buffer);
+
+	check = searchDirectory(2, "README  TXT", &(efsl.myFs)).startCluster;
+	printf("README.TXT is at cluster %x\n", check);
 
 
 	return 0;
