@@ -7,6 +7,7 @@
 
 /* Includes */
 #include <math.h>
+#include <stdlib.h>
 #include "alt_types.h"
 #include "altstring.h"
 
@@ -22,7 +23,8 @@ alt_32 intfromstring(alt_8 string[]);
 void decimaltobinary(alt_32* binaryArray, alt_32 decimal);
 void decimaltohex(alt_32* hexArray, alt_32 decimal);
 alt_8 charfromint(alt_32 number);
-void uppercasestring(alt_u8* lowerCaseString);
+void uppercasestring(alt_8* lowerCaseString);
+alt_32 formatStringForFAT(alt_8* instring, alt_8* outstring);
 
 /* ----------------------------------- Functions ----------------------------------- */
 
@@ -104,8 +106,7 @@ alt_32 extract_little(alt_u8* buffer, alt_32 size){
 	return sum;
 }
 
-void uppercasestring(alt_u8* lowerCaseString){
-
+void uppercasestring(alt_8* lowerCaseString){
 	while(*lowerCaseString != '\0'){
 		if(*lowerCaseString >= 'a' && *lowerCaseString <= 'z'){
 			*lowerCaseString -= 0x20;
@@ -114,5 +115,42 @@ void uppercasestring(alt_u8* lowerCaseString){
 	}
 }
 
-#endif
+/* Outstring is an array of 12 */
+alt_32 formatStringForFAT(alt_8* instring, alt_8* outstring){
+	alt_32 instring_length = altstrlen(instring);
+	alt_32 outstring_length = 11;
+	alt_32 check;
 
+	alt_8* instringCopy = malloc(instring_length);
+	alt_8* fileExtension;
+	if (instringCopy == NULL){
+		return -1;
+	}
+	altstrcpy(instringCopy, instring);
+	uppercasestring(instringCopy);
+	check = string_replace(instringCopy, '.', '\0', 1, -1); // replce 1 period from the back of the string with a null
+	if (check == 1){
+		fileExtension = instringCopy + altstrlen(instringCopy) + 1;
+		printf("FILE %s\n%s\n", instringCopy, fileExtension);
+	} else {
+		fileExtension = (alt_8*) &"   ";
+	}
+
+	if (altstrlen(instringCopy) > 8){
+		instringCopy[8] = '\0';
+	}
+
+	altstrcpy(outstring, instringCopy);
+	// append spaces to filename
+	alt_32 i;
+	for (i=0; i < 8 - altstrlen(instringCopy); i++){
+		altstrcat(outstring, " ");
+	}
+	altstrcat(outstring, fileExtension);
+	free(instringCopy);
+	return 0;
+}
+
+
+
+#endif

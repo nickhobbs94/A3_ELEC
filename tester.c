@@ -253,6 +253,11 @@ int main(void){
 
 	file_fclose(&file);
 
+	alt_8 i[] = "r";
+	alt_8 o[12];
+	printf("%x\n", formatStringForFAT(i, o));
+	printf("%s\n%s\n", i, o);
+
 
 	return 0;
 }
