@@ -171,23 +171,36 @@ File findFile(FileSystemInfo* myFs, alt_8 filepath[]){
 	if(filepath[0] != '/'){
 		fileNamesCount++;
 	}
+
 	alt_8 **filenameArray = malloc(MAX_FILE_NAME_SIZE*fileNamesCount);
 	numberOfWords = altsplitstring(filepath, filenameArray, '/');
 	alt_8 *findFileName = filenameArray[numberOfWords-1];
 
+	// int i = 0;
+	// for(; i < numberOfWords; ++i)
+	// {
+	// 	printf("%s\n", filenameArray[i]);
+	// }
+
 	alt_32 wordCount;
 	for(wordCount = 0; wordCount < numberOfWords; ++wordCount){
 		printf("%s\n", filenameArray[wordCount]);
-		printf("%d\n", wordCount);
+		
 		file = searchDirectory(clusterNumber, filenameArray[wordCount], myFs);
-		printf("%d\n", file.attributes);
+
+
 		if(file.fileName[0] & END_OF_DIR){
 			printf("Error: End of Directory\n");
 			break;
 		} else if (file.attributes & SUBDIRECTORY){
 			clusterNumber = file.startCluster;
 		} else if(altstrcmp(file.fileName, findFileName) != 0){
-			printf("Error: File name in path is not correct \n In Path: %s \n File Name: %s\n", filepath, file.fileName);
+			printf("Error: File name in path is not correct \n");
+			printf("file.fileName: %s\n", file.fileName);
+			printf("findFileName: %s\n", findFileName);
+			printf("filenameArray[%d]: %s\n", wordCount ,filenameArray[wordCount]);
+			printf("clusterNumber: %d\n" ,clusterNumber);
+			printf("numberOfWords: %d\n" ,numberOfWords);
 			break;
 		}
 	}
@@ -240,7 +253,10 @@ int main(void){
 	File file;
 
 	alt_u8 buffer[100];
-	check = file_fopen(&file, &(efsl.myFs), "README  TXT", 'r');
+	printf("\n~~WITHOUT SLASH~~\n");
+	check = file_fopen(&file, &(efsl.myFs), "FOLDER/FILE    TXT", 'r');
+	printf("\n~~WITH SLASH~~\n");
+	check = file_fopen(&file, &(efsl.myFs), "/FOLDER/FILE    TXT", 'r');
 
 	if (check != 0){
 		printf("Could not open file\n");
