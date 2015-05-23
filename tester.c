@@ -11,10 +11,11 @@
 #define CLUSTERS_IN_FATSECTOR 128
 #define BYTES_PER_ENTRY 4
 #define DIRECTORY_ENTRIES_PER_SECTOR 16
+#define MAX_FILE_NAME_SIZE 12
 
 /* Only when not using NIOS board */
 alt_32 sd_readSector(alt_32 address, alt_u8* buffer){
-	FILE* fp = fopen("/Users/nicholashobbs/Desktop/SD.dmg", "r");
+	FILE* fp = fopen("/home/roxy/Desktop/SD.dmg", "r");
 	//FILE* fp = fopen("/Users/nicholashobbs/Downloads/Torrent/2015-05-05-raspbian-wheezy.img", "r");
 	if (fp == NULL){
 		return -1;
@@ -155,12 +156,45 @@ File searchDirectory(alt_32 directoryCluster, alt_8 filename[], FileSystemInfo* 
 }
 
 //TODO find cluster number from filename
-alt_32 findFile(FileSystemInfo* myFs, alt_8 filename[]){
-	printf("%s\n",filename);
-	string_replace(filename, 'e', '.', 1, -1);
-	printf("%s\n",filename);
-	printf("%d\n", altstrcount(filename, 'e'));
-	return 0xe0;
+alt_32 findFile(FileSystemInfo* myFs, alt_8 filepath[]){
+	alt_32 fileNamesCount = altstrcount(filepath, '/');
+	alt_8 numberOfWords;
+	alt_32 clusterNumber = myFs->bootSector.rootClusterStart;
+	File file;
+
+	if(filepath[0] != '/'){
+		fileNamesCount++;
+	}
+	alt_8 **filenameArray = malloc(MAX_FILE_NAME_SIZE*fileNamesCount);
+	numberOfWords = altsplitstring(filepath, filenameArray, '/');
+	alt_8 *findFileName = filenameArray[numberOfWords-1];
+
+	alt_32 wordCount;
+	for(wordCount = 0; wordCount <= numberOfWords; ++wordCount){
+		printf("%s\n", filenameArray[wordCount]);
+		printf("%d\n", wordCount);
+		file = searchDirectory(clusterNumber, filenameArray[wordCount], myFs);
+		printf("%s\n", file.fileName);
+		if(file.fileName[0] & END_OF_DIR){
+			printf("Error: End of Directory\n");
+			free(filenameArray);
+			return -1;
+		} else if (file.attributes & SUBDIRECTORY){
+			clusterNumber = file.startCluster;
+		} else {
+			if(altstrcmp(file.fileName, findFileName) == 0){
+				free(filenameArray);
+				return file.startCluster;
+			} else {
+				printf("Error: File name in path is not correct \n In Path: %s \n File Name: %s\n", filepath, file.fileName);
+				free(filenameArray);
+				return -1;
+			}
+		}
+	}
+	printf("Error: made it end of function");
+	free(filenameArray);
+	return -1; 
 }
 
 alt_32 file_fopen(File* file, FileSystemInfo* myFs, alt_8 filenameLiteral[], alt_u8 mode){
