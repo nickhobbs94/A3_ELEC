@@ -418,7 +418,7 @@ alt_32  read_file(alt_32 argc, alt_8* argv[]){
 			printf("ERROR READING FILE\n\r");
 		} else {
 			buffer[e] = '\0';
-			printf("%s\n\r", buffer);
+			puttyPrintLine("%s", buffer);
 		}
 		
 

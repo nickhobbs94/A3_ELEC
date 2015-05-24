@@ -125,8 +125,7 @@ void LCD_Init(){
 void puttyPrintLine(const char* format,...){
 	va_list vlist;
 	va_start(vlist,format);
-	char buf[PUTTY_LINE_LENGTH];
-	vsprintf(buf,format,vlist);
+	vprintf(format,vlist);
 }
 
 void puttyPrintChars(alt_8 string[], alt_32 length){

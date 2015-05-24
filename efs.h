@@ -220,6 +220,8 @@ alt_32 file_fopen(File* file, FileSystemInfo* myFs, alt_8 filenameLiteral[], alt
 	*file = findFile(myFs, filenameLiteral);
 	file->currentCluster = file->startCluster;
 	printf("Filesize: %d\n", file->FileSize);
+	printf("Filename: %s\n", file->FileName);
+	printf("File cluster: %d\n", file->startCluster);
 	return 0;
 }
 
@@ -238,7 +240,7 @@ alt_32 file_read(File* file, alt_32 length, alt_u8 buffer[]){
 		if (file->currentPosition >= file->FileSize){
 			break;
 		}
-		file->currentSector = file->currentPosition/SECTOR_SIZE + file->currentClusterStartSector;
+		file->currentSector = (file->currentPosition/SECTOR_SIZE)%file->sectorsPerCluster + file->currentClusterStartSector;
 		if (file->currentPosition % SECTOR_SIZE == 0){
 			sd_readSector(file->currentSector, sectorBuffer);
 		}
