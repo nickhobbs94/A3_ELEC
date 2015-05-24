@@ -34,7 +34,7 @@
 #define  OTHER_PART_LFN    0
 
 /* Cluster Special Values */
-
+#define END_OF_CLUSTER 0x0ffffff8
 /* --------------------------- raw buffer structures --------------------------- */
 
 typedef struct partitionTable{
@@ -207,9 +207,9 @@ typedef struct DirList{
 	alt_32 startingCluster;
 	alt_32 currentPosition;
 	alt_32 startSectorOfFAT;
-	alt_32 startSector;
 	alt_32 sectorsPerCluster;
 	alt_32 firstClusterStart; // sector where the first cluster is
+	alt_32 currentCluster;
 } DirList;
 
 #endif

@@ -167,18 +167,28 @@ File searchDirectory(alt_32 directoryCluster, alt_8 rawfilename[], FileSystemInf
 }
 
 File findFile(FileSystemInfo* myFs, alt_8 filepath[]){
+	File file;
 	if(filepath[0] == '/'){
 		filepath++;
+	}
+	if (filepath[0] == '\0'){
+		file.startCluster = myFs->bootSector.rootClusterStart;
+		file.currentPosition = file.startCluster;
+		file.startSectorOfFAT = myFs->bootSector.startingSectorOfFAT;
+		file.sectorsPerCluster = myFs->bootSector.sectorsPerCluster;
+		file.firstClusterStart = myFs->bootSector.firstClusterStart;
+		altstrcpy(file.FileName, "/");
+		return file;
 	}
 	alt_32 fileNamesCount = altstrcount(filepath, '/') + 1;
 	alt_8 formattedName[MAX_FILE_NAME_SIZE];
 	alt_8 numberOfWords;
 	alt_32 clusterNumber = myFs->bootSector.rootClusterStart;
-	File file;
 
 	
 	alt_8 **filenameArray = malloc(MAX_FILE_NAME_SIZE*fileNamesCount);
 	numberOfWords = altsplitstring(filepath, filenameArray, '/');
+	printf("splitString %s, %d\n", filenameArray[0], fileNamesCount);
 	alt_8 *findFileName = filenameArray[numberOfWords-1];
 	formatStringForFAT(findFileName, formattedName);
 
@@ -200,6 +210,7 @@ File findFile(FileSystemInfo* myFs, alt_8 filepath[]){
 			printf("numberOfWords: %d\n" ,numberOfWords);
 			break;
 		} else if (file.Attribute & SUBDIRECTORY){
+			printf("SUBDIR %s\n", file.FileName);
 			clusterNumber = file.startCluster;
 		} else if(altstrcmp(file.FileName, formattedName) != 0){
 			printf("Error: File name in path is not correct \n");
@@ -231,8 +242,8 @@ alt_32 file_read(File* file, alt_32 length, alt_u8 buffer[]){
 	alt_32 currentSectorPosition;
 	sd_readSector(file->currentSector, sectorBuffer);
 	for (i=0; i<length; i++){
-		if (file->currentCluster >= 0x0ffffff8){
-			printf("\nEND CLUSTER\n");
+		if (file->currentCluster >= END_OF_CLUSTER){
+			//printf("\nEND CLUSTER\n");
 			break;
 		}
 		file->currentClusterStartSector = file->firstClusterStart + file->sectorsPerCluster * (file->currentCluster - 2);
@@ -265,16 +276,60 @@ alt_32 file_fclose(File* file){
 
 alt_32 ls_getNext(DirList* list){
 	alt_u8 buffer[SECTOR_SIZE];
-	alt_32 currentSector = (list->startingCluster - 2) * list->sectorsPerCluster + list->firstClusterStart;
+	alt_32 currentClusterSector;
+	alt_32 currentSector;
+	alt_32 currentSectorPosition;
 	sd_readSector(currentSector, buffer);
+	alt_32 entriesPerSector = SECTOR_SIZE / sizeof(directoryEntry);
+	alt_u8 fileCheck;
+
 	do {
-		list->currentEntry = newFile(buffer, list->currentEntryNum, list->sectorsPerCluster, list->firstClusterStart);
-	} while (list->currentEntry.FileName[0] != (alt_8) END_OF_DIR && list->currentEntry.FileName[0] == (alt_8) ENTRY_IS_ERASED);
-	if (list->currentEntry.FileName[0] == END_OF_DIR){
+		if (list->currentCluster >= END_OF_CLUSTER){
+			return -1;
+		}
+		if (list->currentEntryNum != 0 && list->currentEntryNum % (list->sectorsPerCluster * entriesPerSector) == 0){
+			list->currentCluster = getFATentry(list->currentCluster, list->startSectorOfFAT);
+		}
+		currentClusterSector = (list->currentCluster - 2) * list->sectorsPerCluster + list->firstClusterStart;
+		//printf("currentClusterSector %d\n", currentClusterSector);
+		currentSector = (list->currentEntryNum * sizeof(directoryEntry) / SECTOR_SIZE) % list->sectorsPerCluster + currentClusterSector;
+		//printf("currentSector %d\n", currentSector);
+		currentSectorPosition = list->currentEntryNum % (SECTOR_SIZE / sizeof(directoryEntry));
+		//printf("currentSectorPosition %d\n", currentSectorPosition % entriesPerSector);
+
+		sd_readSector(currentSector, buffer);
+		list->currentEntry = newFile(buffer, currentSectorPosition, list->sectorsPerCluster, list->firstClusterStart);
+		fileCheck = (alt_u8) (list->currentEntry.FileName[0]);
+		//printf("FILENAMES %s\n", list->currentEntry.FileName);
+		//printf("%d\n", list->currentEntryNum);
+		list->currentEntryNum++;
+	} while (fileCheck != END_OF_DIR && (fileCheck == ENTRY_IS_ERASED || list->currentEntry.FileSize < 0));
+	//printf("%x\n", fileCheck);
+	if (fileCheck == END_OF_DIR){
 		return -1;
 	}
-	list->currentEntryNum++;
+
+	/*do {
+		list->currentEntry = newFile(buffer, list->currentEntryNum, list->sectorsPerCluster, list->firstClusterStart);
+		//printf("%s\n", list->currentEntry.FileName);
+		list->currentEntryNum++;
+	} while ((alt_u8)list->currentEntry.FileName[0] != END_OF_DIR 
+		&& ((alt_u8)list->currentEntry.FileName[0] == ENTRY_IS_ERASED));
+	if ((alt_u8)list->currentEntry.FileName[0] == END_OF_DIR){
+		return -1;
+	} else {
+		printf("WELL %x %d\n", list->currentEntry.FileName[0], list->currentEntry.FileSize);
+	}*/
 	return 0;
+}
+
+void printDirList(DirList* list){
+	printf("currentEntryNum:            %d\n", list->currentEntryNum);
+	printf("startingCluster             %d\n", list->startingCluster);
+	printf("currentPosition             %d\n", list->currentPosition);
+	printf("startSectorOfFAT            %d\n", list->startSectorOfFAT);
+	printf("sectorsPerCluster           %d\n", list->sectorsPerCluster);
+	printf("firstClusterStart           %d\n", list->firstClusterStart);
 }
 
 alt_32 ls_openDir(DirList* list,FileSystemInfo* myFs, alt_8* path){
@@ -286,9 +341,10 @@ alt_32 ls_openDir(DirList* list,FileSystemInfo* myFs, alt_8* path){
 	list->startingCluster = directoryObject.startCluster;
 	list->currentPosition = directoryObject.currentPosition;
 	list->startSectorOfFAT = directoryObject.startSectorOfFAT;
-	list->startSector = directoryObject.startSector;
 	list->sectorsPerCluster = directoryObject.sectorsPerCluster;
 	list->firstClusterStart = directoryObject.firstClusterStart;
+	list->currentCluster = list->startingCluster;
+	printDirList(list);
 	return 0;
 }
 alt_32 file_write(File* file, alt_32 size, alt_8* buffer){

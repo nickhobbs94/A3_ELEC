@@ -165,14 +165,14 @@ alt_32 ls_path(alt_32 argc, alt_8* argv[]){
 	if (argc>1){
 		SD_updatePath(path,argv[1]);
 	}
-	printf("PATH: %s\n",path);
+	//printf("PATH: %s\n",path);
 	puttyPrintLine("PATH: %s\n\r",path);
 
 	/* Read directory */
 	alt_8 checkpath = ls_openDir(&list,&(efsl->myFs),path);
 	//printf("checkpath=%d\n",checkpath);
 	if (checkpath!=0){
-		printf("Unable to read path: %s\n",path);
+		//printf("Unable to read path: %s\n",path);
 		puttyPrintLine("Unable to read path: %s\n\r",path);
 		if (UNMOUNT_SD_AFTER_OPERATION){
 			SD_unmount();
@@ -184,22 +184,22 @@ alt_32 ls_path(alt_32 argc, alt_8* argv[]){
 	while(ls_getNext(&list)==0){
 		isEmptyDir = 0;
 		attribute = SD_getFileAttribute(list.currentEntry.Attribute);
-		printf("%s \t%c \t(%d)\n",
-				list.currentEntry.FileName,
-				attribute,
-				list.currentEntry.FileSize
-				);
+		//printf("%s \t%c \t(%d)\n",
+		//		list.currentEntry.FileName,
+		//		attribute,
+		//		list.currentEntry.FileSize
+		//		);
 		puttyPrintLine((alt_8*)list.currentEntry.FileName);
 		if (attribute == 'd'){
-			puttyPrintLine(" \t[Folder] \t");
+			puttyPrintLine("        [Folder]        ");
 		} else {
-			puttyPrintLine(" \t[ File ] \t");
+			puttyPrintLine("        [ File ]        ");
 		}
 		puttyPrintLine("(%d bytes)\n\r",list.currentEntry.FileSize);
 	}
 
 	if (isEmptyDir){
-		printf("The directory is empty\n");
+		//printf("The directory is empty\n");
 		puttyPrintLine("The directory is empty\n\r");
 	}
 	
