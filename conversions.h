@@ -17,6 +17,7 @@
 #define LARGEST_POSITIVE_INT "2147483647"
 #define ABS_SMALLEST_NEGATIVE_INT "2147483648"
 #define MAX_NUM_STRINGLEN 10
+#define FAT_32_FILELENGTH 11
 
 /* Function prototypes */
 alt_32 intfromstring(alt_8 string[]);
@@ -115,38 +116,38 @@ void uppercasestring(alt_8* lowerCaseString){
 	}
 }
 
-/* Outstring is an array of 12 */
+/* IMPORTANT: Outstring is an array of 12 */
 alt_32 formatStringForFAT(alt_8* instring, alt_8* outstring){
 	alt_32 instring_length = altstrlen(instring);
-	alt_32 outstring_length = 11;
+	alt_32 outstring_length = FAT_32_FILELENGTH; // important
 	alt_32 check;
+	alt_32 period_count = altstrcount(instring, '.');
+	alt_u8 periodFound = 0;
+	if (period_count) periodFound = 1;
 
-	alt_8* instringCopy = malloc(instring_length);
-	alt_8* fileExtension;
-	if (instringCopy == NULL){
-		return -1;
-	}
-	altstrcpy(instringCopy, instring);
-	uppercasestring(instringCopy);
-	check = string_replace(instringCopy, '.', '\0', 1, -1); // replce 1 period from the back of the string with a null
-	if (check == 1){
-		fileExtension = instringCopy + altstrlen(instringCopy) + 1;
-	} else {
-		fileExtension = (alt_8*) &"   ";
-	}
-
-	if (altstrlen(instringCopy) > 8){
-		instringCopy[8] = '\0';
-	}
-
-	altstrcpy(outstring, instringCopy);
-	// append spaces to filename
 	alt_32 i;
-	for (i=0; i < 8 - altstrlen(instringCopy); i++){
-		altstrcat(outstring, " ");
+	for (i=0; i<outstring_length && i<instring_length; i++){
+		if (instring[i] == '.'){
+			if (period_count > 0){
+				break;
+			} else {
+				period_count--;
+			}
+		}
+		outstring[i] = instring[i];
 	}
-	altstrcat(outstring, fileExtension);
-	free(instringCopy);
+	while (i < outstring_length){
+		outstring[i] = ' ';
+		i++;
+	}
+	if (periodFound){
+		for (i=0; i<3; i++){
+			outstring[outstring_length - 1 - i] = instring[instring_length - 1 - i];
+		}
+	}
+
+	outstring[outstring_length] = '\0';
+	uppercasestring(outstring);
 	return 0;
 }
 

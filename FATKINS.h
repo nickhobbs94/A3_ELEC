@@ -17,14 +17,14 @@
 
 /* File attributes bitmask */
 /* example usage: if (attribute & HIDDEN); */
-#define   READONLY       0b00000001
-#define   HIDDEN         0b00000010
-#define   SYSTEM         0b00000100
-#define   VOLUME_LABEL   0b00001000
-#define   SUBDIRECTORY   0b00010000
-#define   ARCHIVE        0b00100000
-#define   DEVICE         0b01000000
-#define   UNUSED         0b10000000
+#define   READONLY       1
+#define   HIDDEN         2
+#define   SYSTEM         4
+#define   VOLUME_LABEL   8
+#define   SUBDIRECTORY   16
+#define   ARCHIVE        32
+#define   DEVICE         64
+#define   UNUSED         128
 #define   LONGFILENAME   0x0f
 
 
@@ -32,6 +32,8 @@
 #define  DELETED_ENTRY     8
 #define  LAST_PART_LFN     4
 #define  OTHER_PART_LFN    0
+
+/* Cluster Special Values */
 
 /* --------------------------- raw buffer structures --------------------------- */
 
@@ -115,6 +117,7 @@ typedef struct EmbeddedBootSector{
 	alt_32 firstClusterStart;
 	alt_32 sectorsPerCluster;
 	alt_32 rootClusterStart;
+	alt_16 bytesPerSector;
 } EmbeddedBootSector;
 
 EmbeddedBootSector newEmbeddedBootSector(alt_u8* buffer, alt_32 bootSectorAddress){
@@ -129,6 +132,7 @@ EmbeddedBootSector newEmbeddedBootSector(alt_u8* buffer, alt_32 bootSectorAddres
 	newBootSector.firstClusterStart = newBootSector.startingSectorOfFAT + newBootSector.numOfFATs * newBootSector.sectorsPerFAT;
 	newBootSector.sectorsPerCluster = rawBootSector->sectorsPerCluster;
 	newBootSector.rootClusterStart = extract_little(rawBootSector->clusterNumOfRootDir, 4);
+	newBootSector.bytesPerSector = extract_little(rawBootSector->bytesPerSector, 2);
 	return newBootSector;
 }
 
@@ -166,35 +170,47 @@ typedef struct EmbeddedFileSystem{
 /* -------------- Other structs ---------------- */
 
 typedef struct File{
-	alt_8 fileName[12]; // 8 (name) + 3 (extension) + 1 (null terminate)
+	alt_8 FileName[12]; // 8 (name) + 3 (extension) + 1 (null terminate)
 	alt_32 startCluster;
-	alt_32 fileSize;
+	alt_32 currentCluster;
+	alt_32 FileSize;
 	alt_32 currentPosition; // how much of the file has been read?
-	alt_u8 attributes;
+	alt_u8 Attribute;
 	alt_32 startSectorOfFAT;
 	alt_32 startSector;
+	alt_32 currentClusterStartSector;
+	alt_32 currentSector;
+	alt_32 sectorsPerCluster;
+	alt_32 firstClusterStart; // sector where the first cluster is
 } File;
 
-File newFile(alt_u8* buffer, alt_32 offset){
+File newFile(alt_u8* buffer, alt_32 offset, alt_32 sectorsPerCluster, alt_32 firstClusterStart){
 	File file;
 	directoryEntry* rawEntry = (directoryEntry*) buffer + offset;
 
-	file.attributes = rawEntry->fileAttributes;
+	file.Attribute = rawEntry->fileAttributes;
 	/* Null terminate by nulling file attributes */
 	rawEntry->fileAttributes = '\0';
-	altstrcpy((alt_8*)file.fileName, (alt_8*)rawEntry->fileName);
+	altstrcpy((alt_8*)file.FileName, (alt_8*)rawEntry->fileName);
 	file.startCluster = (extract_little(rawEntry->startCluster_msb, 2)<<2) + (extract_little(rawEntry->startCluster_lsb, 2));
 	file.currentPosition = 0;
-	file.fileSize = extract_little(rawEntry->fileSizeInBytes, 4);
-
+	file.FileSize = extract_little(rawEntry->fileSizeInBytes, 4);
+	file.currentCluster = file.startCluster;
+	file.sectorsPerCluster = sectorsPerCluster;
+	file.firstClusterStart = firstClusterStart;
 	return file;
 }
 
 typedef struct DirList{
 	File currentEntry;
+	alt_32 currentEntryNum;
 	alt_32 startingCluster;
+	alt_32 currentPosition;
+	alt_32 startSectorOfFAT;
+	alt_32 startSector;
+	alt_32 sectorsPerCluster;
+	alt_32 firstClusterStart; // sector where the first cluster is
 } DirList;
-
 
 #endif
 
