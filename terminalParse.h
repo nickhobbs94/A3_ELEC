@@ -76,9 +76,9 @@ alt_8 string_parser(alt_8* string, alt_8* array_of_words[]){
 	}
 	alt_32 i;
 	for (i=0; i<string_length; i++){	
-		if (*(string+i)==' '){
+		if (*(string+i)==' ' || *(string+i)=='\n' || *(string+i)=='\r'){
 			*(string+i)='\0'; // replace spaces with nulls
-			if(*(string+i+1)!='\0' && *(string+i+1)!=' '){
+			if(*(string+i+1)!='\0' && *(string+i+1)!=' ' && *(string+i)!='\n' && *(string+i)!='\r'){
 				array_of_words[count]=string+i+1; // set pointer to the next word
 				count++;
 			}

@@ -4,12 +4,11 @@
 
 #include "FATKINS.h"
 #include "alt_types.h"
-#include "spi_sd.h"
+
 #include <stdio.h>
 #include <stdlib.h>
 #include "altstring.h"
 #include "conversions.h"
-//#include "SDDir.h"
 
 
 #define SECTOR_SIZE 512
@@ -34,19 +33,6 @@ alt_32 file_fclose(File* file);
 alt_32 ls_getNext(DirList* list);
 alt_32 ls_openDir(DirList* list,FileSystemInfo* myFs, alt_8* path);
 
-/* Only when not using NIOS board */
-/*alt_32 sd_readSector(alt_32 address, alt_u8* buffer){
-	FILE* fp = fopen(OUR_SD_DIR_LOCATION, "r");
-	//FILE* fp = fopen("/Users/nicholashobbs/Downloads/Torrent/2015-05-05-raspbian-wheezy.img", "r");
-	if (fp == NULL){
-		return -1;
-	}
-	
-	fseek(fp, address*512, SEEK_SET);
-	fread(buffer, 1, 512, fp);
-	fclose(fp);
-	return 0;
-}*/
 
 
 void printSector(alt_u8* buffer){
@@ -64,24 +50,6 @@ void printSector(alt_u8* buffer){
 }
 
 
-/*alt_32 getBootSector(alt_32 bootSectorAddress, EmbeddedBootSector* bootSectorPtr){
-	alt_u8 buffer[SECTOR_SIZE];
-
-	sd_readSector(bootSectorAddress, buffer);
-	//printSector(buffer);
-
-	bootSector* bootSec = (bootSector*) buffer;
-
-	bootSectorPtr->num_reserved_sectors = extract_little(bootSec->numReservedSectors,2);
-	bootSectorPtr->startingSectorOfFAT = bootSectorAddress + bootSectorPtr->num_reserved_sectors;
-	bootSectorPtr->numOfFATs = bootSec->numFileAllocTables;
-	bootSectorPtr->sectorsPerFAT = extract_little(bootSec->sectorsPerFAT,4);
-	bootSectorPtr->firstClusterStart = bootSectorPtr->startingSectorOfFAT + bootSectorPtr->numOfFATs * bootSectorPtr->sectorsPerFAT;
-	bootSectorPtr->sectorsPerCluster = bootSec->sectorsPerCluster;
-	bootSectorPtr->rootClusterStart = extract_little(bootSec->clusterNumOfRootDir, 4);
-
-	return 0;
-}*/
 
 EmbeddedBootSector getBootSector(alt_32 bootSectorAddress){
 	alt_u8 buffer[SECTOR_SIZE];
@@ -150,7 +118,7 @@ alt_32 efs_init(EmbeddedFileSystem* fileSystem, alt_8 deviceName[]){
 	fileSystem->myFs.partition = fileSystem->partitions[0];
 
 	fileSystem->myFs.bootSector = getBootSector(fileSystem->partitions[0].bootSectorAddress);
-	printEFS(fileSystem);
+	//printEFS(fileSystem);
 
 	return 0;
 }
@@ -225,6 +193,7 @@ File findFile(FileSystemInfo* myFs, alt_8 filepath[]){
 			printf("Error: unable to find file/folder: %s\n", filenameArray[wordCount]);
 			printf("Error: File name in path is not correct \n");
 			printf("file.FileName: %s\n", file.FileName);
+			printf("formattedName: %s\n", formattedName);
 			//printf("findFileName: %s\n", findFileName);
 			printf("filenameArray[%d]: %s\n", wordCount ,filenameArray[wordCount]);
 			printf("clusterNumber: %d\n" ,clusterNumber);
@@ -261,6 +230,7 @@ alt_32 file_read(File* file, alt_32 length, alt_u8 buffer[]){
 	sd_readSector(file->currentSector, sectorBuffer);
 	for (i=0; i<length; i++){
 		if (file->currentCluster >= 0x0ffffff8){
+			printf("\nEND CLUSTER\n");
 			break;
 		}
 		file->currentClusterStartSector = file->firstClusterStart + file->sectorsPerCluster * (file->currentCluster - 2);
@@ -277,9 +247,10 @@ alt_32 file_read(File* file, alt_32 length, alt_u8 buffer[]){
 		bytesRead++;
 		file->currentPosition++;
 
-		if (file->currentPosition % (file->sectorsPerCluster) == 0 && file->currentPosition != 0){
+		if (file->currentPosition % (file->sectorsPerCluster * SECTOR_SIZE) == 0 && file->currentPosition != 0){
+			//printf("Current pos %d", file->currentPosition);
 			file->currentCluster = getFATentry(file->currentCluster, file->startSectorOfFAT);
-			printf("\t\t\t%d\n", file->currentCluster);
+			//printf("\t\t\t%d\n", file->currentCluster);
 		}
 	}
 	return bytesRead;
@@ -296,7 +267,7 @@ alt_32 ls_getNext(DirList* list){
 	sd_readSector(currentSector, buffer);
 	do {
 		list->currentEntry = newFile(buffer, list->currentEntryNum, list->sectorsPerCluster, list->firstClusterStart);
-	} while (list->currentEntry.FileName != END_OF_DIR && list->currentEntry.FileName == ENTRY_IS_ERASED);
+	} while (list->currentEntry.FileName[0] != (alt_8) END_OF_DIR && list->currentEntry.FileName[0] == (alt_8) ENTRY_IS_ERASED);
 	if (list->currentEntry.FileName[0] == END_OF_DIR){
 		return -1;
 	}

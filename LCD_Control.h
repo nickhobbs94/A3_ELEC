@@ -18,7 +18,6 @@
 void  LCD_Init();
 void  LCD_Show_Text(alt_8* Text);
 void  LCD_Line2();
-void  LCD_Test();
 void  LCD_Show_Decimal(alt_32 input);
 //-------------------------------------------------------------------------
 

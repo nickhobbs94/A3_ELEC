@@ -12,17 +12,12 @@
 #include <stdbool.h>
 #include <stdlib.h>
 #include "conversions.h"
-#include "io.h"
-#include "system.h"
 #include "alt_types.h"
-#include "LCD_Control.h"
 #include "efs.h"
 //#include "ls.h"
 #include "SD_functions.h"
 #include "altstring.h"
-#include "altera_up_avalon_audio_dgz.h"
-#include "AUDIO.h"
-#include "altera_up_avalon_audio_regs_dgz.h"
+
 
 /* Magic numbers */
 #define NUMBER_OF_LEDS 18
@@ -57,7 +52,7 @@ alt_32 echo(alt_32 argc, alt_8* argv[]){
 	/* Loop over each argument provided to the function and print each one to the LCD and console */
 	for (i=1; i<argc; i++){
 		puttyPrintLine(argv[i]);
-		puttyPrintLine("\n\r");
+		puttyPrintLine("\r\n");
 		LCD_Show_Text(argv[i]);
 		LCD_Show_Text((alt_8*) " ");
 	}
@@ -189,7 +184,7 @@ alt_32 ls_path(alt_32 argc, alt_8* argv[]){
 	while(ls_getNext(&list)==0){
 		isEmptyDir = 0;
 		attribute = SD_getFileAttribute(list.currentEntry.Attribute);
-		printf("%s \t%c \t(%li)\n",
+		printf("%s \t%c \t(%d)\n",
 				list.currentEntry.FileName,
 				attribute,
 				list.currentEntry.FileSize
@@ -318,7 +313,7 @@ alt_32 delete_file(alt_32 argc, alt_8* argv[]){
 	SD_updatePath(path,argv[1]);
 
 	/* Remove the file */
-	alt_16 result = rmfile(&(efsl->myFs), (alt_u8*)path);
+	alt_16 result = rmfile(&(efsl->myFs), path);
 
 	if(result == -1){
 		puttyPrintLine("Error: file does not exist\n\r");
@@ -367,7 +362,7 @@ alt_32 write_new_file(alt_32 argc, alt_8* argv[]){
 	}
 	puttyPrintLine("File opened for writing.\n\r");
 
-	if(file_write(&file,altstrlen((alt_8*)write_buffer),(alt_u8*)write_buffer) == altstrlen((alt_8*)write_buffer)){
+	if(file_write(&file,altstrlen((alt_8*)write_buffer),(alt_8*)write_buffer) == altstrlen((alt_8*)write_buffer)){
 		puttyPrintLine("File written.\n\r");
 	} else {
 		puttyPrintLine("Could not write file.\n\r");
@@ -415,7 +410,7 @@ alt_32  read_file(alt_32 argc, alt_8* argv[]){
 	//puttyPrintLine(" for reading\n");
 
 	while((e=file_read(&file,512,buffer))){
-		printf("%d\n", e);
+		//printf("%d\n", e);
 		/*for(f=0;f<e;f++){
 			printf("%c",buffer[f]);
 		}*/
@@ -423,7 +418,7 @@ alt_32  read_file(alt_32 argc, alt_8* argv[]){
 			printf("ERROR READING FILE\n\r");
 		} else {
 			buffer[e] = '\0';
-			printf("%d %s\n\r",e, buffer);
+			printf("%s\n\r", buffer);
 		}
 		
 
@@ -483,7 +478,7 @@ alt_32 copy_file(alt_32 argc, alt_8* argv[]){
 	}
 	puttyPrintLine("File opened for writing.\n\r");
 
-	if(file_write(&file2,e,buffer)==e){
+	if(file_write(&file2,e,(alt_8*)buffer)==e){
 		puttyPrintLine("File written.\n\r");
 	} else {
 		puttyPrintLine("could not write file.\n\r");
@@ -693,5 +688,7 @@ alt_32 wav_play(alt_32 argc, alt_8* argv[]){
 	}
     return 0;
 }
+
+
 #endif
 

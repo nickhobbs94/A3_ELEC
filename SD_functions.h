@@ -9,14 +9,13 @@
 #include "altstring.h"
 #include "alt_types.h"
 #include "efs.h"
-//#include "ls.h"
+//#include "ls.h" // from std EFSL library
 #include "conversions.h"
 
 /* Magic numbers */
 #define SD_MAX_PATH_LENGTH 200
 #define SD_FOLDER_BITMASK 0x10
 #define UNMOUNT_SD_AFTER_OPERATION 1
-#define PUTTY_LINE_LENGTH 150   // max line length able to be entered into putty
 
 /* Function prototypes */
 EmbeddedFileSystem** SD_mount();
@@ -98,21 +97,7 @@ void SD_updatePath(alt_8* currentPath, alt_8 argument[]){
 	}
 }
 
-void puttyPrintLine(const char* format,...){
-	va_list vlist;
-	va_start(vlist,format);
-	char buf[PUTTY_LINE_LENGTH];
-	vsprintf(buf,format,vlist);
-	alt_32 uart_pointer = open("/dev/uart_0", O_WRONLY);
-	write(uart_pointer, buf, strlen(buf));
-	close(uart_pointer);
-}
 
-void puttyPrintChars(alt_8 string[], alt_32 length){
-	alt_32 uart_pointer = open("/dev/uart_0", O_WRONLY);
-	write(uart_pointer, string, length);
-	close(uart_pointer);
-}
 
 /*void puttyPrintInt(alt_32 number){
 	alt_32 temp;
