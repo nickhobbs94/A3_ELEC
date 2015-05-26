@@ -6,9 +6,11 @@ Roxanne Jackson
 
 Alistair Woodcock
 
+
 ---------------------------
 
-This branch:
+No external files needed
 
-Question 2 experiment area
+use command "ls" to list contents of folder
 
+use command "wav FILENAME" to play a wav file

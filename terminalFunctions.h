@@ -418,7 +418,7 @@ alt_32  read_file(alt_32 argc, alt_8* argv[]){
 			printf("ERROR READING FILE\n\r");
 		} else {
 			buffer[e] = '\0';
-			puttyPrintLine("%s", buffer);
+			printf("%s", buffer);
 		}
 		
 
@@ -497,7 +497,8 @@ alt_32 copy_file(alt_32 argc, alt_8* argv[]){
 
 #define SIZE_OF_HEADER 44
 #define STRING_LEN 4
-#define OUTPUT_BUFFER_LEN 1024
+#define OUTPUT_BUFFER_LEN 512
+#define READ_IN 4096
 
 /* Define structure of header */
 typedef struct{
@@ -582,6 +583,11 @@ alt_32 wav_play(alt_32 argc, alt_8* argv[]){
 	  default:  puttyPrintLine("Non-standard sampling rate\n\r"); return -1;
    }
 
+	if (!(header_data->Format[0] == 'W' && header_data->Format[1] == 'A' && header_data->Format[2] == 'V' && header_data->Format[3] == 'E')){
+		puttyPrintLine("Wrong format or corrupt header\n\r");
+		return -1;
+	}
+
 	/* Print some header data */
 	puttyPrintLine("Chunk ID: ");
 	puttyPrintChars(header_data->Chunk_ID, STRING_LEN);
@@ -617,21 +623,27 @@ alt_32 wav_play(alt_32 argc, alt_8* argv[]){
 
 	//this is bad remove it later
 	//file.FileSize = header_data->Subchunk2_Size;
+	alt_32 shift = 32 - header_data->Bits_Per_Sample;
+	alt_32 mask = 0xffffffff;
 
+	if (header_data->Bits_Per_Sample == 8){
+		shift--;
+		mask = 0x0fffffff;
+	}
 	while (totalBytesRead < header_data->Subchunk2_Size){
 		/* Read enough data for the number of channels to load one buffer's worth each */
 		if (totalBytesRead + FILE_BUFFER_LEN < header_data->Subchunk2_Size){
 			bytesRead = file_read(&file, FILE_BUFFER_LEN, fileBuffer);
 			totalBytesRead += bytesRead;
 		} else {
-			printf("LAST THINGY\n");
+			printf("End of file\n");
 			bytesRead = file_read(&file, (header_data->Subchunk2_Size - totalBytesRead), fileBuffer);
 			totalBytesRead += bytesRead;
 		}
 
 		/* If the bytes just read is not large enough and the end of the file 
 			has not been reached, then return an error */
-		if (bytesRead != FILE_BUFFER_LEN   &&   totalBytesRead <= header_data->Subchunk2_Size){
+		if (bytesRead != FILE_BUFFER_LEN   &&   totalBytesRead < header_data->Subchunk2_Size){
 			puttyPrintLine("End of file was unexpectedly reached %d %d %d\n\r", bytesRead, totalBytesRead, header_data->Subchunk2_Size);
 			free(fileBuffer);
 			file_fclose(&file);
@@ -643,7 +655,29 @@ alt_32 wav_play(alt_32 argc, alt_8* argv[]){
 
 		/* Split the buffer into the number of channels and amplify if not 32 bit sampling */
 		for (i=0; i<bytesRead/header_data->Num_Channels/bytesPerSample; i++){
-			switch(header_data->Bits_Per_Sample){
+			switch(header_data->Num_Channels){
+				case 1:
+					buffer1[i] = extract_little(fileBuffer + i*bytesPerSample, bytesPerSample) & mask;
+					buffer2[i] = buffer1[i] & mask;
+					buffer1[i] = buffer1[i] << shift;
+					buffer2[i] = buffer2[i] << shift;
+					break;
+				case 2:
+					buffer1[i] = extract_little(fileBuffer + i*bytesPerSample*2, bytesPerSample) & mask;
+					buffer2[i] = extract_little(fileBuffer + i*bytesPerSample*2 + bytesPerSample, bytesPerSample) & mask;
+					buffer1[i] = buffer1[i] << shift;
+					buffer2[i] = buffer2[i] << shift;
+					break;
+				default:
+					printf("Unsupported number of channels\n");
+					file_fclose(&file);
+					if (UNMOUNT_SD_AFTER_OPERATION){
+						SD_unmount();
+					}
+					free(fileBuffer);
+					return -1;
+			}
+			/*switch(header_data->Bits_Per_Sample){
 				case 8:
 					buffer1[i] = *((alt_u8*)fileBuffer + (header_data->Num_Channels)*i);
 					buffer2[i] = *((alt_u8*)fileBuffer + (header_data->Num_Channels)*i + (header_data->Num_Channels)/2);
@@ -668,7 +702,7 @@ alt_32 wav_play(alt_32 argc, alt_8* argv[]){
 					}
 					free(fileBuffer);
 					return -1;
-			}
+			}*/
 		}
 
 		/* Wait for both left and right FIFOs to be free */

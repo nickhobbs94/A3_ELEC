@@ -228,31 +228,37 @@ File findFile(FileSystemInfo* myFs, alt_8 filepath[]){
 }
 
 alt_32 file_fopen(File* file, FileSystemInfo* myFs, alt_8 filenameLiteral[], alt_u8 mode){
-	*file = findFile(myFs, filenameLiteral);
+	alt_8* filename = malloc(altstrlen(filenameLiteral)+ 1);
+	altstrcpy(filename, filenameLiteral);
+	*file = findFile(myFs, filename);
 	file->currentCluster = file->startCluster;
 	printf("Filesize: %d\n", file->FileSize);
 	printf("Filename: %s\n", file->FileName);
 	printf("File cluster: %d\n", file->startCluster);
+	free(filename);
+	if (file->FileName[0] == END_OF_DIR){
+		return -1;
+	}
 	return 0;
 }
 
 alt_32 file_read(File* file, alt_32 length, alt_u8 buffer[]){
 	alt_32 i, bytesRead=0;
-	alt_u8 sectorBuffer[SECTOR_SIZE];
+	static alt_u8 sectorBuffer[SECTOR_SIZE];
 	alt_32 currentSectorPosition;
-	sd_readSector(file->currentSector, sectorBuffer);
+	//sd_readSector(file->currentSector, sectorBuffer);
 	for (i=0; i<length; i++){
 		if (file->currentCluster >= END_OF_CLUSTER){
 			//printf("\nEND CLUSTER\n");
 			break;
 		}
-		file->currentClusterStartSector = file->firstClusterStart + file->sectorsPerCluster * (file->currentCluster - 2);
 		//printf("currentclusterstartsec %d, first cluster start %d, sectors per cluster %d, current cluster %d", file->currentClusterStartSector, file->firstClusterStart , file->sectorsPerCluster , file->currentCluster);
 		if (file->currentPosition >= file->FileSize){
 			break;
 		}
-		file->currentSector = (file->currentPosition/SECTOR_SIZE)%file->sectorsPerCluster + file->currentClusterStartSector;
 		if (file->currentPosition % SECTOR_SIZE == 0){
+			file->currentClusterStartSector = file->firstClusterStart + file->sectorsPerCluster * (file->currentCluster - 2);
+			file->currentSector = (file->currentPosition/SECTOR_SIZE)%file->sectorsPerCluster + file->currentClusterStartSector;
 			sd_readSector(file->currentSector, sectorBuffer);
 		}
 		currentSectorPosition = file->currentPosition % SECTOR_SIZE;

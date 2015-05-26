@@ -14,13 +14,22 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <string.h>
+#include <io.h>
+#include "newtypes.h"
+//#include "alt_types.h"
+#include "system.h"
+#include "AUDIO.h"
+#include "altera_up_avalon_audio_dgz.h"
+#include "altera_up_avalon_audio_regs_dgz.h"
+
 #include "LCD_Control.h"
 #include "spi_sd.h"
 #include "io.h"
 #include "system.h"
-#include "altera_up_avalon_audio_dgz.h"
-#include "AUDIO.h"
-#include "altera_up_avalon_audio_regs_dgz.h"
+
 
 void puttyPrintLine(const char* format,...){
 	va_list vlist;

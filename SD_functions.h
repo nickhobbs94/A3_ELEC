@@ -15,7 +15,7 @@
 /* Magic numbers */
 #define SD_MAX_PATH_LENGTH 200
 #define SD_FOLDER_BITMASK 0x10
-#define UNMOUNT_SD_AFTER_OPERATION 1
+#define UNMOUNT_SD_AFTER_OPERATION 0
 
 /* Function prototypes */
 EmbeddedFileSystem** SD_mount();

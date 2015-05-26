@@ -268,7 +268,7 @@ esint8 sd_writeSector(euint32 address, euint8* buf){
  */
 esint8 sd_readSector(euint32 address, euint8* buf){
 	euint8 cardresp, firstblock;
-	euint16 fb_timeout=0xffff;
+	euint16 fb_timeout=0xafff;
 	euint32 place;
 	//DBG((TXT("sd_readSector::Trying to read sector %u and store it at %p.\n"),address,&buf[0]));
 	place=address<<9;
