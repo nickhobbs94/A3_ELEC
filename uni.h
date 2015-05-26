@@ -14,7 +14,6 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdarg.h>
 #include "LCD_Control.h"
 #include "spi_sd.h"
 #include "io.h"
